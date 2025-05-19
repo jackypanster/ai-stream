@@ -34,3 +34,9 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./public
           cname: # 如果你有自定义域名，可以在这里设置
+          publish_branch: gh-pages
+          exclude_assets: .github
+          # 显式指定要复制的内容，包括以点开头的文件和目录
+          extra_files: |
+            public/**/*
+            public/.*
