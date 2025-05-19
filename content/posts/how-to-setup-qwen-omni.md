@@ -2,8 +2,8 @@
 title = 'Qwen2.5-Omni-7B 文本转语音部署指南'
 date = 2025-05-19T10:54:50+08:00
 draft = false
-tags: ["qwen", "omni"]
-categories: ["LLM"]
+tags = ["qwen", "omni"]
+categories = ["LLM"]
 +++
 
 本脚本基于 Qwen2.5-Omni-7B 多模态模型实现文本转语音（TTS）功能，支持生成自然流畅的中文 / 英文语音，并提供两种语音类型（女性 “Chelsie”、男性 “Ethan”）。脚本可将输入文本转换为音频文件（.wav格式），适用于语音助手、内容创作、无障碍服务等场景。
