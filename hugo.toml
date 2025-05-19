@@ -16,6 +16,16 @@ theme = 'PaperMod'
   ShowToc = true
   TocOpen = true
 
+  ShowRssButtonInSectionTermList = true
+  ShowFullTextinRSS = true
+  disableSpecial1stPost = false
+  disableScrollToTop = false
+  disableAnchoredHeadings = false
+  hideMeta = false
+  hideSummary = false
+  hideFooter = false
+  comments = true
+
 [outputs]
   home = ["HTML", "RSS", "JSON"]
 
