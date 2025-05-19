@@ -1,0 +1,7 @@
+baseURL = 'https://github.com/jackypanster/ai-stream'
+languageCode = 'en-us'
+title = 'AI Stream'
+theme = 'PaperMod'
+
+[params]
+  author = "Jacky Pan"
