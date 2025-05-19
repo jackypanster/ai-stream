@@ -7,6 +7,15 @@ theme = 'PaperMod'
   author = "Jacky Pan"
   ShowSearch = true
 
+  ShowReadingTime = true
+  ShowWordCount = true
+  ShowShareButtons = true
+  ShowCodeCopyButtons = true
+  ShowBreadCrumbs = true
+  ShowPostNavLinks = true
+  ShowToc = true
+  TocOpen = true
+
 [outputs]
   home = ["HTML", "RSS", "JSON"]
 
