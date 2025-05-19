@@ -21,7 +21,11 @@ jobs:
           hugo-version: 'latest'
 
       - name: Build
-        run: hugo --minify
+        run: |
+          hugo --minify
+          ls -al public
+          ls -al public/assets
+          ls -al public/assets/css
         working-directory: ./  # 添加这一行
 
       - name: Deploy to GitHub Pages
