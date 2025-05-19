@@ -7,6 +7,9 @@ theme = 'PaperMod'
   author = "Jacky Pan"
   ShowSearch = true
 
+[outputs]
+  home = ["HTML", "RSS", "JSON"]
+
 [menu]
   [[menu.main]]
     identifier = "categories"
