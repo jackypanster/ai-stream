@@ -1,1 +1,98 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>Posts on AI Stream</title><link>https://jackypanster.github.io/ai-stream/posts/</link><description>Recent content in Posts on AI Stream</description><generator>Hugo -- 0.147.3</generator><language>en-us</language><lastBuildDate>Mon, 19 May 2025 10:54:50 +0800</lastBuildDate><atom:link href="https://jackypanster.github.io/ai-stream/posts/index.xml" rel="self" type="application/rss+xml"/><item><title>How to Setup Hugo Blog</title><link>https://jackypanster.github.io/ai-stream/posts/how-to-setup-hugo-blog/</link><pubDate>Mon, 19 May 2025 10:54:50 +0800</pubDate><guid>https://jackypanster.github.io/ai-stream/posts/how-to-setup-hugo-blog/</guid><description>&lt;p>这是我的第一篇关于 AI 的技术笔记。我将在这里记录我的学习和工作心得&amp;hellip;&lt;/p></description></item></channel></rss>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>Posts on AI Stream</title><link>https://jackypanster.github.io/ai-stream/posts/</link><description>Recent content in Posts on AI Stream</description><generator>Hugo -- 0.147.3</generator><language>en-us</language><lastBuildDate>Mon, 19 May 2025 10:54:50 +0800</lastBuildDate><atom:link href="https://jackypanster.github.io/ai-stream/posts/index.xml" rel="self" type="application/rss+xml"/><item><title>Qwen2.5-Omni-7B 文本转语音部署指南</title><link>https://jackypanster.github.io/ai-stream/posts/how-to-setup-qwen-omni/</link><pubDate>Mon, 19 May 2025 10:54:50 +0800</pubDate><guid>https://jackypanster.github.io/ai-stream/posts/how-to-setup-qwen-omni/</guid><description>&lt;p>本脚本基于 Qwen2.5-Omni-7B 多模态模型实现文本转语音（TTS）功能，支持生成自然流畅的中文 / 英文语音，并提供两种语音类型（女性 “Chelsie”、男性 “Ethan”）。脚本可将输入文本转换为音频文件（.wav格式），适用于语音助手、内容创作、无障碍服务等场景。&lt;/p>
+&lt;p>安装依赖库&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>uv init
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>uv add git+https://github.com/huggingface/transformers@v4.51.3-Qwen2.5-Omni-preview
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>uv add accelerate
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>uv add qwen-omni-utils&lt;span style="color:#f92672">[&lt;/span>decord&lt;span style="color:#f92672">]&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>uv add soundfile
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>uv add torchvision
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>uv sync
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>完整脚本代码（main_text2audio.py）&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-python" data-lang="python">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">import&lt;/span> os
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">import&lt;/span> soundfile &lt;span style="color:#66d9ef">as&lt;/span> sf
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">import&lt;/span> torch
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">from&lt;/span> transformers &lt;span style="color:#f92672">import&lt;/span> Qwen2_5OmniForConditionalGeneration, Qwen2_5OmniProcessor
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">from&lt;/span> qwen_omni_utils &lt;span style="color:#f92672">import&lt;/span> process_mm_info
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#f92672">from&lt;/span> transformers &lt;span style="color:#f92672">import&lt;/span> AutoConfig
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">def&lt;/span> &lt;span style="color:#a6e22e">text_to_speech&lt;/span>(
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> text_input: str,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> output_audio_path: str &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#e6db74">&amp;#34;output/test_audio.wav&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> speaker: str &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#e6db74">&amp;#34;Chelsie&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> model_path: str &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#e6db74">&amp;#34;/home/llm/model/qwen/Omni/&amp;#34;&lt;/span> &lt;span style="color:#75715e"># 改为本地路径或远程路径&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>):
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;&amp;#34;&amp;#34;
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> 文本转语音核心函数
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> :param text_input: 输入文本（支持中文/英文）
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> :param output_audio_path: 音频输出路径（含文件名）
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> :param speaker: 语音类型（&amp;#34;Chelsie&amp;#34;女性/&amp;#34;Ethan&amp;#34;男性）
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> :param model_path: 模型路径（本地/远程）
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#e6db74"> &amp;#34;&amp;#34;&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 1. 加载模型配置（修复ROPE参数兼容性）&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> config &lt;span style="color:#f92672">=&lt;/span> AutoConfig&lt;span style="color:#f92672">.&lt;/span>from_pretrained(model_path, local_files_only&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#66d9ef">True&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">if&lt;/span> hasattr(config, &lt;span style="color:#e6db74">&amp;#34;rope_scaling&amp;#34;&lt;/span>) &lt;span style="color:#f92672">and&lt;/span> &lt;span style="color:#e6db74">&amp;#34;mrope_section&amp;#34;&lt;/span> &lt;span style="color:#f92672">in&lt;/span> config&lt;span style="color:#f92672">.&lt;/span>rope_scaling:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> config&lt;span style="color:#f92672">.&lt;/span>rope_scaling&lt;span style="color:#f92672">.&lt;/span>pop(&lt;span style="color:#e6db74">&amp;#34;mrope_section&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 2. 加载模型（支持GPU自动分配）&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> model &lt;span style="color:#f92672">=&lt;/span> Qwen2_5OmniForConditionalGeneration&lt;span style="color:#f92672">.&lt;/span>from_pretrained(
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> model_path,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> config&lt;span style="color:#f92672">=&lt;/span>config,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> torch_dtype&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;auto&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> device_map&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;auto&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> local_files_only&lt;span style="color:#f92672">=&lt;/span>(model_path &lt;span style="color:#f92672">!=&lt;/span> &lt;span style="color:#e6db74">&amp;#34;Qwen/Qwen2.5-Omni-7B&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> )
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> processor &lt;span style="color:#f92672">=&lt;/span> Qwen2_5OmniProcessor&lt;span style="color:#f92672">.&lt;/span>from_pretrained(model_path)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 3. 系统提示（必须包含语音生成能力声明）&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> system_prompt &lt;span style="color:#f92672">=&lt;/span> [
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> {
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;role&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;system&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#e6db74">&amp;#34;content&amp;#34;&lt;/span>: [
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> {&lt;span style="color:#e6db74">&amp;#34;type&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;text&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;text&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;You are Qwen, a virtual human developed by the Qwen Team, Alibaba Group, capable of perceiving auditory and visual inputs, as well as generating text and speech.&amp;#34;&lt;/span>}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ]
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> }
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ]
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 4. 构建对话（纯文本输入）&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> conversation &lt;span style="color:#f92672">=&lt;/span> system_prompt &lt;span style="color:#f92672">+&lt;/span> [
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> {&lt;span style="color:#e6db74">&amp;#34;role&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;user&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;content&amp;#34;&lt;/span>: [{&lt;span style="color:#e6db74">&amp;#34;type&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;text&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;text&amp;#34;&lt;/span>: text_input}]}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ]
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 5. 处理输入数据&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> text &lt;span style="color:#f92672">=&lt;/span> processor&lt;span style="color:#f92672">.&lt;/span>apply_chat_template(conversation, add_generation_prompt&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#66d9ef">True&lt;/span>, tokenize&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#66d9ef">False&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> audios, images, videos &lt;span style="color:#f92672">=&lt;/span> process_mm_info(conversation, use_audio_in_video&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#66d9ef">False&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 6. 生成语音&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> inputs &lt;span style="color:#f92672">=&lt;/span> processor(
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> text&lt;span style="color:#f92672">=&lt;/span>text, audio&lt;span style="color:#f92672">=&lt;/span>audios, images&lt;span style="color:#f92672">=&lt;/span>images, videos&lt;span style="color:#f92672">=&lt;/span>videos,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> return_tensors&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;pt&amp;#34;&lt;/span>, padding&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#66d9ef">True&lt;/span>, use_audio_in_video&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#66d9ef">False&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> )&lt;span style="color:#f92672">.&lt;/span>to(model&lt;span style="color:#f92672">.&lt;/span>device, model&lt;span style="color:#f92672">.&lt;/span>dtype)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">with&lt;/span> torch&lt;span style="color:#f92672">.&lt;/span>no_grad():
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> text_ids, audio &lt;span style="color:#f92672">=&lt;/span> model&lt;span style="color:#f92672">.&lt;/span>generate(
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">**&lt;/span>inputs,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> speaker&lt;span style="color:#f92672">=&lt;/span>speaker,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> do_sample&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#66d9ef">True&lt;/span>, &lt;span style="color:#75715e"># 启用采样模式以使用temperature/top_p&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> temperature&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">0.8&lt;/span>, &lt;span style="color:#75715e"># 控制随机性（0.5-1.0较自然）&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> top_p&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">0.95&lt;/span>, &lt;span style="color:#75715e"># 核采样参数&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> max_new_tokens&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">1024&lt;/span>, &lt;span style="color:#75715e"># 控制语音时长（约15秒）&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> use_audio_in_video&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#66d9ef">False&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> )
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 7. 保存结果&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> os&lt;span style="color:#f92672">.&lt;/span>makedirs(os&lt;span style="color:#f92672">.&lt;/span>path&lt;span style="color:#f92672">.&lt;/span>dirname(output_audio_path), exist_ok&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#66d9ef">True&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> sf&lt;span style="color:#f92672">.&lt;/span>write(output_audio_path, audio&lt;span style="color:#f92672">.&lt;/span>reshape(&lt;span style="color:#f92672">-&lt;/span>&lt;span style="color:#ae81ff">1&lt;/span>)&lt;span style="color:#f92672">.&lt;/span>cpu()&lt;span style="color:#f92672">.&lt;/span>numpy(), samplerate&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">24000&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> print(&lt;span style="color:#e6db74">f&lt;/span>&lt;span style="color:#e6db74">&amp;#34;✅ 生成完成：&lt;/span>&lt;span style="color:#e6db74">{&lt;/span>output_audio_path&lt;span style="color:#e6db74">}&lt;/span>&lt;span style="color:#e6db74">&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> print(&lt;span style="color:#e6db74">f&lt;/span>&lt;span style="color:#e6db74">&amp;#34;📄 生成文本：&lt;/span>&lt;span style="color:#e6db74">{&lt;/span>processor&lt;span style="color:#f92672">.&lt;/span>batch_decode(text_ids, skip_special_tokens&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#66d9ef">True&lt;/span>)[&lt;span style="color:#ae81ff">0&lt;/span>]&lt;span style="color:#e6db74">}&lt;/span>&lt;span style="color:#e6db74">&amp;#34;&lt;/span>)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">if&lt;/span> __name__ &lt;span style="color:#f92672">==&lt;/span> &lt;span style="color:#e6db74">&amp;#34;__main__&amp;#34;&lt;/span>:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 示例输入（可替换为任意文本）&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> input_text &lt;span style="color:#f92672">=&lt;/span> &lt;span style="color:#e6db74">&amp;#34;你好，这是Qwen2.5-Omni的文本转语音示例。祝你使用愉快！&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 调用函数（指定输出路径和语音类型）&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> text_to_speech(
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> input_text,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> output_audio_path&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;output/hello_qwen.wav&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> speaker&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;Chelsie&amp;#34;&lt;/span> &lt;span style="color:#75715e"># 可选&amp;#34;Ethan&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> )
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>运行脚本&lt;/p></description></item></channel></rss>
