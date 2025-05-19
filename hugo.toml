@@ -1,4 +1,4 @@
-baseURL = 'https://github.com/jackypanster/ai-stream/'
+baseURL = 'https://jackypanster.github.io/ai-stream/'
 languageCode = 'en-us'
 title = 'AI Stream'
 theme = 'PaperMod'
