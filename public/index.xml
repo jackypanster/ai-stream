@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>AI Stream</title>
+    <link>http://localhost:1313/jackypanster/ai-stream/</link>
+    <description>Recent content on AI Stream</description>
+    <generator>Hugo -- 0.147.3</generator>
+    <language>en-us</language>
+    <lastBuildDate>Mon, 19 May 2025 10:54:50 +0800</lastBuildDate>
+    <atom:link href="http://localhost:1313/jackypanster/ai-stream/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>How to Setup Hugo Blog</title>
+      <link>http://localhost:1313/jackypanster/ai-stream/posts/how-to-setup-hugo-blog/</link>
+      <pubDate>Mon, 19 May 2025 10:54:50 +0800</pubDate>
+      <guid>http://localhost:1313/jackypanster/ai-stream/posts/how-to-setup-hugo-blog/</guid>
+      <description>&lt;p&gt;这是我的第一篇关于 AI 的技术笔记。我将在这里记录我的学习和工作心得&amp;hellip;&lt;/p&gt;</description>
+    </item>
+  </channel>
+</rss>
