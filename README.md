@@ -16,25 +16,33 @@ This document provides a detailed guide on setting up and deploying a Hugo blog 
     hugo new site ai-stream
     cd ai-stream
     git init
-    git submodule add [https://github.com/wowchemy/starter-hugo-academic.git](https://github.com/wowchemy/starter-hugo-academic.git) themes/starter-hugo-academic
+    git submodule add [https://github.com/adityatelange/hugo-PaperMod.git](https://github.com/adityatelange/hugo-PaperMod.git) themes/PaperMod
     ```
 
     \* Replace `ai-stream` with your desired site name.
-    \* You can replace the theme with any other Hugo theme. This example uses "starter-hugo-academic".
+    \* This example uses the "PaperMod" theme.
 
-2.  **Configure the site:**
+2.  **Initialize or update submodules:**
+
+    ```bash
+    git submodule update --init --recursive
+    ```
+
+    \* This command is crucial to ensure that the theme (and any other submodules) are correctly initialized or updated.
+
+3.  **Configure the site:**
 
     * Edit the `config.toml` file in the root directory to configure your site settings (title, baseURL, etc.).
     * **Important:** Set the `baseURL` correctly.
         * For a user/organization site: `baseURL = "https://<your-username>.github.io/"`
         * For a project site: `baseURL = "https://<your-username>.github.io/<your-repository-name>/"`
 
-3.  **Choose and apply a theme:**
+4.  **Choose and apply a theme:**
 
     * If you didn't use a starter site, add a theme to your site's `themes` directory.
-    * Modify `config.toml` to specify the theme: `theme = "<theme-name>"`
+    * Modify `config.toml` to specify the theme: `theme = "<theme-name>"` (In this case, `theme = "PaperMod"`)
 
-4.  **Create your first post:**
+5.  **Create your first post:**
 
     ```bash
     hugo new content posts/my-first-post.md
@@ -167,5 +175,9 @@ This document provides a detailed guide on setting up and deploying a Hugo blog 
 
 * To update your site's content, simply edit the Markdown files in the `content/` directory and push the changes to your `main` branch.
 * To update your site's design or theme, modify the theme files or your site's configuration and push the changes.
+
+## Theme Used
+
+* This setup uses the [PaperMod](https://github.com/adityatelange/hugo-PaperMod) theme.
 
 This setup provides an automated workflow for publishing and updating your Hugo blog with GitHub Pages.
