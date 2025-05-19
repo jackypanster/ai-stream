@@ -2,21 +2,23 @@ name: Hugo Build & Deploy to GitHub Pages
 
 on:
   push:
-    branches: [ "main" ] # 你的主要分支名称，通常是 main 或 master
+    branches: [ "main" ]
 
 jobs:
   build-deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # 显式赋予写入仓库内容的权限
     steps:
       - name: Checkout
         uses: actions/checkout@v3
         with:
-          submodules: true  # 拉取主题子模块
+          submodules: true
 
       - name: Setup Hugo
         uses: peaceiris/actions-hugo@v2
         with:
-          hugo-version: 'latest' # 你可以指定 Hugo 版本
+          hugo-version: 'latest'
 
       - name: Build
         run: hugo --minify
