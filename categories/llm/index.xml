@@ -1,4 +1,34 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>LLM on AI Stream</title><link>https://jackypanster.github.io/ai-stream/categories/llm/</link><description>Recent content in LLM on AI Stream</description><generator>Hugo -- 0.147.3</generator><language>en-us</language><lastBuildDate>Mon, 19 May 2025 10:54:50 +0800</lastBuildDate><atom:link href="https://jackypanster.github.io/ai-stream/categories/llm/index.xml" rel="self" type="application/rss+xml"/><item><title>Qwen2.5-Omni-7B 文本转语音部署指南</title><link>https://jackypanster.github.io/ai-stream/posts/how-to-setup-qwen-omni/</link><pubDate>Mon, 19 May 2025 10:54:50 +0800</pubDate><guid>https://jackypanster.github.io/ai-stream/posts/how-to-setup-qwen-omni/</guid><description>&lt;p>本脚本基于 Qwen2.5-Omni-7B 多模态模型实现文本转语音（TTS）功能，支持生成自然流畅的中文 / 英文语音，并提供两种语音类型（女性 “Chelsie”、男性 “Ethan”）。脚本可将输入文本转换为音频文件（.wav格式），适用于语音助手、内容创作、无障碍服务等场景。&lt;/p>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>LLM on AI Stream</title><link>https://jackypanster.github.io/ai-stream/categories/llm/</link><description>Recent content in LLM on AI Stream</description><generator>Hugo -- 0.147.3</generator><language>en-us</language><lastBuildDate>Mon, 19 May 2025 10:54:50 +0800</lastBuildDate><atom:link href="https://jackypanster.github.io/ai-stream/categories/llm/index.xml" rel="self" type="application/rss+xml"/><item><title>Qwen2.5-Omni-7B 文本转语音部署指南</title><link>https://jackypanster.github.io/ai-stream/posts/how-to-setup-qwen-omni/</link><pubDate>Mon, 19 May 2025 10:54:50 +0800</pubDate><guid>https://jackypanster.github.io/ai-stream/posts/how-to-setup-qwen-omni/</guid><description>&lt;p>&lt;img alt="Qwen2.5-Omni-7B TTS" loading="lazy" src="https://via.placeholder.com/800x400.png/007bff/ffffff?text=Qwen2.5-Omni-7B+TTS">&lt;/p>
+&lt;h2 id="概述">概述&lt;/h2>
+&lt;p>本脚本基于 Qwen2.5-Omni-7B 多模态模型实现文本转语音（TTS）功能，支持生成自然流畅的中文 / 英文语音，并提供两种语音类型（女性 “Chelsie”、男性 “Ethan”）。脚本可将输入文本转换为音频文件（.wav格式），适用于语音助手、内容创作、无障碍服务等场景。&lt;/p>
+&lt;h2 id="主要特性">主要特性&lt;/h2>
+&lt;ul>
+&lt;li>🎙️ 支持自然流畅的 &lt;strong>中文/英文&lt;/strong> 语音合成&lt;/li>
+&lt;li>👥 提供两种语音类型选择：
+&lt;ul>
+&lt;li>女性声线：&amp;ldquo;Chelsie&amp;rdquo;&lt;/li>
+&lt;li>男性声线：&amp;ldquo;Ethan&amp;rdquo;&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>💾 输出格式：标准 &lt;code>.wav&lt;/code> 音频文件&lt;/li>
+&lt;li>🚀 高性能推理，适用于生产环境&lt;/li>
+&lt;/ul>
+&lt;h2 id="应用场景">应用场景&lt;/h2>
+&lt;ul>
+&lt;li>智能语音助手开发&lt;/li>
+&lt;li>内容创作与播客制作&lt;/li>
+&lt;li>无障碍服务&lt;/li>
+&lt;li>教育类应用&lt;/li>
+&lt;li>多媒体内容生成&lt;/li>
+&lt;/ul>
+&lt;h2 id="开始使用">开始使用&lt;/h2>
+&lt;blockquote>
+&lt;p>💡 在开始之前，请确保您的系统满足以下要求：&lt;/p>
+&lt;ul>
+&lt;li>Python 3.8+&lt;/li>
+&lt;li>CUDA 11.7+ (如需GPU加速)&lt;/li>
+&lt;li>至少16GB可用内存&lt;/li>
+&lt;/ul>&lt;/blockquote>
 &lt;p>安装依赖库&lt;/p>
 &lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>uv init
 &lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>uv add git+https://github.com/huggingface/transformers@v4.51.3-Qwen2.5-Omni-preview
