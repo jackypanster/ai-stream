@@ -1,6 +1,6 @@
 baseURL = 'https://jackypanster.github.io/ai-stream/'
 languageCode = 'en-us'
-title = 'AI Stream'
+title = 'AI 避难所'
 theme = 'PaperMod'
 
 [params]
