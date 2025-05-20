@@ -1,4 +1,198 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>Posts on AI Stream</title><link>https://jackypanster.github.io/ai-stream/posts/</link><description>Recent content in Posts on AI Stream</description><generator>Hugo -- 0.147.3</generator><language>en-us</language><lastBuildDate>Mon, 19 May 2025 10:54:50 +0800</lastBuildDate><atom:link href="https://jackypanster.github.io/ai-stream/posts/index.xml" rel="self" type="application/rss+xml"/><item><title>Qwen2.5-Omni-7B 文本转语音部署指南</title><link>https://jackypanster.github.io/ai-stream/posts/how-to-setup-qwen-omni/</link><pubDate>Mon, 19 May 2025 10:54:50 +0800</pubDate><guid>https://jackypanster.github.io/ai-stream/posts/how-to-setup-qwen-omni/</guid><description>&lt;p>&lt;img alt="Qwen2.5-Omni-7B TTS" loading="lazy" src="https://via.placeholder.com/800x400.png/007bff/ffffff?text=Qwen2.5-Omni-7B+TTS">&lt;/p>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>Posts on AI Stream</title><link>https://jackypanster.github.io/ai-stream/posts/</link><description>Recent content in Posts on AI Stream</description><generator>Hugo -- 0.147.3</generator><language>en-us</language><lastBuildDate>Tue, 20 May 2025 20:24:06 +0800</lastBuildDate><atom:link href="https://jackypanster.github.io/ai-stream/posts/index.xml" rel="self" type="application/rss+xml"/><item><title>如何使用Qwen2.5-Omni实现文本转语音(TTS)和语音转文本(ASR)</title><link>https://jackypanster.github.io/ai-stream/posts/how-to-use-qwen-omni-tts-asr/</link><pubDate>Tue, 20 May 2025 20:24:06 +0800</pubDate><guid>https://jackypanster.github.io/ai-stream/posts/how-to-use-qwen-omni-tts-asr/</guid><description>&lt;h1 id="如何使用qwen25-omni实现文本转语音tts和语音转文本asr">如何使用Qwen2.5-Omni实现文本转语音(TTS)和语音转文本(ASR)&lt;/h1>
+&lt;h2 id="项目概述">项目概述&lt;/h2>
+&lt;p>本项目基于Qwen2.5-Omni-7B模型，实现了两个核心功能：&lt;/p>
+&lt;ol>
+&lt;li>文本转语音（TTS）：将输入文本转换为自然流畅的语音&lt;/li>
+&lt;li>语音转文本（ASR）：将语音文件转换为文本，支持标准ASR和纯ASR两种模式&lt;/li>
+&lt;/ol>
+&lt;p>项目地址：&lt;a href="https://github.com/jackypanster/qwen-omni">https://github.com/jackypanster/qwen-omni&lt;/a>&lt;/p>
+&lt;h2 id="环境配置">环境配置&lt;/h2>
+&lt;p>推荐使用conda管理Python环境，确保依赖安装的稳定性：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 创建并激活环境&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>conda create -n qwen-tts python&lt;span style="color:#f92672">=&lt;/span>3.10
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>conda activate qwen-tts
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 安装PyTorch（GPU版本）&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>conda install pytorch&lt;span style="color:#f92672">=&lt;/span>2.5.1 pytorch-cuda&lt;span style="color:#f92672">=&lt;/span>12.1 -c pytorch -c nvidia
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>conda install torchvision torchaudio -c pytorch
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#75715e"># 安装其他依赖&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>conda install streamlit python-soundfile -c conda-forge
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>pip install git+https://github.com/huggingface/transformers@v4.51.3-Qwen2.5-Omni-preview
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>pip install qwen-omni-utils
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="核心功能实现">核心功能实现&lt;/h2>
+&lt;h3 id="1-文本转语音tts">1. 文本转语音（TTS）&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-python" data-lang="python">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">def&lt;/span> &lt;span style="color:#a6e22e">text_to_speech&lt;/span>(text_input, output_audio_path&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;output/output.wav&amp;#34;&lt;/span>, speaker&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;Chelsie&amp;#34;&lt;/span>):
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 加载模型和处理器&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> model &lt;span style="color:#f92672">=&lt;/span> Qwen2_5OmniForConditionalGeneration&lt;span style="color:#f92672">.&lt;/span>from_pretrained(
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> model_path,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> config&lt;span style="color:#f92672">=&lt;/span>config,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> torch_dtype&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;auto&amp;#34;&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> device_map&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#e6db74">&amp;#34;auto&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> )
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> processor &lt;span style="color:#f92672">=&lt;/span> Qwen2_5OmniProcessor&lt;span style="color:#f92672">.&lt;/span>from_pretrained(model_path)
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 构造对话&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> conversation &lt;span style="color:#f92672">=&lt;/span> [
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> {&lt;span style="color:#e6db74">&amp;#34;role&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;system&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;content&amp;#34;&lt;/span>: [{&lt;span style="color:#e6db74">&amp;#34;type&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;text&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;text&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;You are Qwen...&amp;#34;&lt;/span>}]},
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> {&lt;span style="color:#e6db74">&amp;#34;role&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;user&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;content&amp;#34;&lt;/span>: [{&lt;span style="color:#e6db74">&amp;#34;type&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;text&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;text&amp;#34;&lt;/span>: text_input}]}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ]
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 生成语音&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">with&lt;/span> torch&lt;span style="color:#f92672">.&lt;/span>no_grad():
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> text_ids, audio &lt;span style="color:#f92672">=&lt;/span> model&lt;span style="color:#f92672">.&lt;/span>generate(
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">**&lt;/span>inputs,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> speaker&lt;span style="color:#f92672">=&lt;/span>speaker,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> do_sample&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#66d9ef">True&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> temperature&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">0.8&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> top_p&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">0.95&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> max_new_tokens&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">1024&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> )
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h3 id="2-语音转文本asr">2. 语音转文本（ASR）&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-python" data-lang="python">&lt;span style="display:flex;">&lt;span>&lt;span style="color:#66d9ef">def&lt;/span> &lt;span style="color:#a6e22e">audio_to_text&lt;/span>(audio_path: str) &lt;span style="color:#f92672">-&amp;gt;&lt;/span> str:
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 标准ASR模式&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> conversation &lt;span style="color:#f92672">=&lt;/span> [
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> {&lt;span style="color:#e6db74">&amp;#34;role&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;system&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;content&amp;#34;&lt;/span>: [{&lt;span style="color:#e6db74">&amp;#34;type&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;text&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;text&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;你是Qwen...&amp;#34;&lt;/span>}]},
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> {&lt;span style="color:#e6db74">&amp;#34;role&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;user&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;content&amp;#34;&lt;/span>: [{&lt;span style="color:#e6db74">&amp;#34;type&amp;#34;&lt;/span>: &lt;span style="color:#e6db74">&amp;#34;audio&amp;#34;&lt;/span>, &lt;span style="color:#e6db74">&amp;#34;audio&amp;#34;&lt;/span>: audio_path}]}
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> ]
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#75715e"># 生成文本&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#66d9ef">with&lt;/span> torch&lt;span style="color:#f92672">.&lt;/span>no_grad():
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> text_ids &lt;span style="color:#f92672">=&lt;/span> model&lt;span style="color:#f92672">.&lt;/span>generate(
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> &lt;span style="color:#f92672">**&lt;/span>inputs,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> do_sample&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#66d9ef">False&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> max_new_tokens&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#ae81ff">1024&lt;/span>,
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> return_audio&lt;span style="color:#f92672">=&lt;/span>&lt;span style="color:#66d9ef">False&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span> )
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;h2 id="web界面实现">Web界面实现&lt;/h2>
+&lt;p>使用Streamlit构建了简洁的Web界面：&lt;/p></description><content:encoded><![CDATA[<h1 id="如何使用qwen25-omni实现文本转语音tts和语音转文本asr">如何使用Qwen2.5-Omni实现文本转语音(TTS)和语音转文本(ASR)</h1>
+<h2 id="项目概述">项目概述</h2>
+<p>本项目基于Qwen2.5-Omni-7B模型，实现了两个核心功能：</p>
+<ol>
+<li>文本转语音（TTS）：将输入文本转换为自然流畅的语音</li>
+<li>语音转文本（ASR）：将语音文件转换为文本，支持标准ASR和纯ASR两种模式</li>
+</ol>
+<p>项目地址：<a href="https://github.com/jackypanster/qwen-omni">https://github.com/jackypanster/qwen-omni</a></p>
+<h2 id="环境配置">环境配置</h2>
+<p>推荐使用conda管理Python环境，确保依赖安装的稳定性：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 创建并激活环境</span>
+</span></span><span style="display:flex;"><span>conda create -n qwen-tts python<span style="color:#f92672">=</span>3.10
+</span></span><span style="display:flex;"><span>conda activate qwen-tts
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 安装PyTorch（GPU版本）</span>
+</span></span><span style="display:flex;"><span>conda install pytorch<span style="color:#f92672">=</span>2.5.1 pytorch-cuda<span style="color:#f92672">=</span>12.1 -c pytorch -c nvidia
+</span></span><span style="display:flex;"><span>conda install torchvision torchaudio -c pytorch
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 安装其他依赖</span>
+</span></span><span style="display:flex;"><span>conda install streamlit python-soundfile -c conda-forge
+</span></span><span style="display:flex;"><span>pip install git+https://github.com/huggingface/transformers@v4.51.3-Qwen2.5-Omni-preview
+</span></span><span style="display:flex;"><span>pip install qwen-omni-utils
+</span></span></code></pre></div><h2 id="核心功能实现">核心功能实现</h2>
+<h3 id="1-文本转语音tts">1. 文本转语音（TTS）</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">text_to_speech</span>(text_input, output_audio_path<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;output/output.wav&#34;</span>, speaker<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;Chelsie&#34;</span>):
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 加载模型和处理器</span>
+</span></span><span style="display:flex;"><span>    model <span style="color:#f92672">=</span> Qwen2_5OmniForConditionalGeneration<span style="color:#f92672">.</span>from_pretrained(
+</span></span><span style="display:flex;"><span>        model_path, 
+</span></span><span style="display:flex;"><span>        config<span style="color:#f92672">=</span>config, 
+</span></span><span style="display:flex;"><span>        torch_dtype<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;auto&#34;</span>, 
+</span></span><span style="display:flex;"><span>        device_map<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;auto&#34;</span>
+</span></span><span style="display:flex;"><span>    )
+</span></span><span style="display:flex;"><span>    processor <span style="color:#f92672">=</span> Qwen2_5OmniProcessor<span style="color:#f92672">.</span>from_pretrained(model_path)
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 构造对话</span>
+</span></span><span style="display:flex;"><span>    conversation <span style="color:#f92672">=</span> [
+</span></span><span style="display:flex;"><span>        {<span style="color:#e6db74">&#34;role&#34;</span>: <span style="color:#e6db74">&#34;system&#34;</span>, <span style="color:#e6db74">&#34;content&#34;</span>: [{<span style="color:#e6db74">&#34;type&#34;</span>: <span style="color:#e6db74">&#34;text&#34;</span>, <span style="color:#e6db74">&#34;text&#34;</span>: <span style="color:#e6db74">&#34;You are Qwen...&#34;</span>}]},
+</span></span><span style="display:flex;"><span>        {<span style="color:#e6db74">&#34;role&#34;</span>: <span style="color:#e6db74">&#34;user&#34;</span>, <span style="color:#e6db74">&#34;content&#34;</span>: [{<span style="color:#e6db74">&#34;type&#34;</span>: <span style="color:#e6db74">&#34;text&#34;</span>, <span style="color:#e6db74">&#34;text&#34;</span>: text_input}]}
+</span></span><span style="display:flex;"><span>    ]
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 生成语音</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">with</span> torch<span style="color:#f92672">.</span>no_grad():
+</span></span><span style="display:flex;"><span>        text_ids, audio <span style="color:#f92672">=</span> model<span style="color:#f92672">.</span>generate(
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">**</span>inputs,
+</span></span><span style="display:flex;"><span>            speaker<span style="color:#f92672">=</span>speaker,
+</span></span><span style="display:flex;"><span>            do_sample<span style="color:#f92672">=</span><span style="color:#66d9ef">True</span>,
+</span></span><span style="display:flex;"><span>            temperature<span style="color:#f92672">=</span><span style="color:#ae81ff">0.8</span>,
+</span></span><span style="display:flex;"><span>            top_p<span style="color:#f92672">=</span><span style="color:#ae81ff">0.95</span>,
+</span></span><span style="display:flex;"><span>            max_new_tokens<span style="color:#f92672">=</span><span style="color:#ae81ff">1024</span>
+</span></span><span style="display:flex;"><span>        )
+</span></span></code></pre></div><h3 id="2-语音转文本asr">2. 语音转文本（ASR）</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">audio_to_text</span>(audio_path: str) <span style="color:#f92672">-&gt;</span> str:
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 标准ASR模式</span>
+</span></span><span style="display:flex;"><span>    conversation <span style="color:#f92672">=</span> [
+</span></span><span style="display:flex;"><span>        {<span style="color:#e6db74">&#34;role&#34;</span>: <span style="color:#e6db74">&#34;system&#34;</span>, <span style="color:#e6db74">&#34;content&#34;</span>: [{<span style="color:#e6db74">&#34;type&#34;</span>: <span style="color:#e6db74">&#34;text&#34;</span>, <span style="color:#e6db74">&#34;text&#34;</span>: <span style="color:#e6db74">&#34;你是Qwen...&#34;</span>}]},
+</span></span><span style="display:flex;"><span>        {<span style="color:#e6db74">&#34;role&#34;</span>: <span style="color:#e6db74">&#34;user&#34;</span>, <span style="color:#e6db74">&#34;content&#34;</span>: [{<span style="color:#e6db74">&#34;type&#34;</span>: <span style="color:#e6db74">&#34;audio&#34;</span>, <span style="color:#e6db74">&#34;audio&#34;</span>: audio_path}]}
+</span></span><span style="display:flex;"><span>    ]
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 生成文本</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">with</span> torch<span style="color:#f92672">.</span>no_grad():
+</span></span><span style="display:flex;"><span>        text_ids <span style="color:#f92672">=</span> model<span style="color:#f92672">.</span>generate(
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">**</span>inputs,
+</span></span><span style="display:flex;"><span>            do_sample<span style="color:#f92672">=</span><span style="color:#66d9ef">False</span>,
+</span></span><span style="display:flex;"><span>            max_new_tokens<span style="color:#f92672">=</span><span style="color:#ae81ff">1024</span>,
+</span></span><span style="display:flex;"><span>            return_audio<span style="color:#f92672">=</span><span style="color:#66d9ef">False</span>
+</span></span><span style="display:flex;"><span>        )
+</span></span></code></pre></div><h2 id="web界面实现">Web界面实现</h2>
+<p>使用Streamlit构建了简洁的Web界面：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#75715e"># 文本输入</span>
+</span></span><span style="display:flex;"><span>text_input <span style="color:#f92672">=</span> st<span style="color:#f92672">.</span>text_area(<span style="color:#e6db74">&#34;请输入要合成的文本：&#34;</span>, height<span style="color:#f92672">=</span><span style="color:#ae81ff">120</span>, max_chars<span style="color:#f92672">=</span><span style="color:#ae81ff">200</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 发音人选择</span>
+</span></span><span style="display:flex;"><span>speaker <span style="color:#f92672">=</span> st<span style="color:#f92672">.</span>selectbox(<span style="color:#e6db74">&#34;请选择发音人：&#34;</span>, [<span style="color:#e6db74">&#34;Chelsie&#34;</span>, <span style="color:#e6db74">&#34;Ethan&#34;</span>], index<span style="color:#f92672">=</span><span style="color:#ae81ff">0</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 生成按钮</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">if</span> st<span style="color:#f92672">.</span>button(<span style="color:#e6db74">&#34;生成语音&#34;</span>):
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 生成语音并播放</span>
+</span></span><span style="display:flex;"><span>    audio_path <span style="color:#f92672">=</span> os<span style="color:#f92672">.</span>path<span style="color:#f92672">.</span>join(OUTPUT_DIR, <span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;tts_</span><span style="color:#e6db74">{</span>uuid<span style="color:#f92672">.</span>uuid4()<span style="color:#f92672">.</span>hex<span style="color:#e6db74">}</span><span style="color:#e6db74">.wav&#34;</span>)
+</span></span><span style="display:flex;"><span>    text_to_speech(text_input, output_audio_path<span style="color:#f92672">=</span>audio_path, speaker<span style="color:#f92672">=</span>speaker)
+</span></span><span style="display:flex;"><span>    st<span style="color:#f92672">.</span>audio(audio_path, format<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;audio/wav&#34;</span>)
+</span></span></code></pre></div><h2 id="restful-api实现">RESTful API实现</h2>
+<p>使用FastAPI构建了RESTful API接口：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#a6e22e">@app.post</span>(<span style="color:#e6db74">&#34;/tts&#34;</span>)
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">tts</span>(request: TTSRequest):
+</span></span><span style="display:flex;"><span>    audio_filename <span style="color:#f92672">=</span> <span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;tts_</span><span style="color:#e6db74">{</span>uuid<span style="color:#f92672">.</span>uuid4()<span style="color:#f92672">.</span>hex<span style="color:#e6db74">}</span><span style="color:#e6db74">.wav&#34;</span>
+</span></span><span style="display:flex;"><span>    audio_path <span style="color:#f92672">=</span> os<span style="color:#f92672">.</span>path<span style="color:#f92672">.</span>join(OUTPUT_DIR, audio_filename)
+</span></span><span style="display:flex;"><span>    text_to_speech(request<span style="color:#f92672">.</span>text, audio_path, request<span style="color:#f92672">.</span>speaker)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> {<span style="color:#e6db74">&#34;audio_url&#34;</span>: <span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;/output/</span><span style="color:#e6db74">{</span>audio_filename<span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">@app.post</span>(<span style="color:#e6db74">&#34;/asr&#34;</span>)
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">def</span> <span style="color:#a6e22e">asr</span>(file: UploadFile <span style="color:#f92672">=</span> File(<span style="color:#f92672">...</span>)):
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e"># 处理上传的音频文件</span>
+</span></span><span style="display:flex;"><span>    audio_path <span style="color:#f92672">=</span> os<span style="color:#f92672">.</span>path<span style="color:#f92672">.</span>join(OUTPUT_DIR, <span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;asr_</span><span style="color:#e6db74">{</span>uuid<span style="color:#f92672">.</span>uuid4()<span style="color:#f92672">.</span>hex<span style="color:#e6db74">}</span><span style="color:#e6db74">.wav&#34;</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">with</span> open(audio_path, <span style="color:#e6db74">&#34;wb&#34;</span>) <span style="color:#66d9ef">as</span> buffer:
+</span></span><span style="display:flex;"><span>        shutil<span style="color:#f92672">.</span>copyfileobj(file<span style="color:#f92672">.</span>file, buffer)
+</span></span><span style="display:flex;"><span>    text <span style="color:#f92672">=</span> audio_to_text(audio_path)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> {<span style="color:#e6db74">&#34;text&#34;</span>: text}
+</span></span></code></pre></div><h2 id="使用说明">使用说明</h2>
+<ol>
+<li>启动Web界面：</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>streamlit run app_text2audio.py
+</span></span></code></pre></div><ol start="2">
+<li>启动API服务：</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>uvicorn fastapi_app:app --host 0.0.0.0 --port <span style="color:#ae81ff">8000</span>
+</span></span></code></pre></div><h2 id="注意事项">注意事项</h2>
+<ol>
+<li>模型文件较大，建议提前下载并配置好模型路径</li>
+<li>使用conda安装依赖可以避免大多数环境问题</li>
+<li>音频文件会保存在output目录下</li>
+<li>API接口支持文件上传和文本转写</li>
+</ol>
+<h2 id="后续优化方向">后续优化方向</h2>
+<ol>
+<li>支持更多发音人选项</li>
+<li>优化模型加载速度</li>
+<li>添加批量处理功能</li>
+<li>支持更多音频格式</li>
+<li>添加历史记录功能</li>
+</ol>
+<h2 id="参考资源">参考资源</h2>
+<ul>
+<li><a href="https://huggingface.co/Qwen/Qwen2.5-Omni-7B">Qwen2.5-Omni-7B官方文档</a></li>
+<li><a href="https://docs.streamlit.io/">Streamlit文档</a></li>
+<li><a href="https://fastapi.tiangolo.com/">FastAPI文档</a></li>
+</ul>
+]]></content:encoded></item><item><title>Qwen2.5-Omni-7B 文本转语音部署指南</title><link>https://jackypanster.github.io/ai-stream/posts/how-to-setup-qwen-omni/</link><pubDate>Mon, 19 May 2025 10:54:50 +0800</pubDate><guid>https://jackypanster.github.io/ai-stream/posts/how-to-setup-qwen-omni/</guid><description>&lt;p>&lt;img alt="Qwen2.5-Omni-7B TTS" loading="lazy" src="https://via.placeholder.com/800x400.png/007bff/ffffff?text=Qwen2.5-Omni-7B+TTS">&lt;/p>
 &lt;h2 id="概述">概述&lt;/h2>
 &lt;p>本脚本基于 Qwen2.5-Omni-7B 多模态模型实现文本转语音（TTS）功能，支持生成自然流畅的中文 / 英文语音，并提供两种语音类型（女性 “Chelsie”、男性 “Ethan”）。脚本可将输入文本转换为音频文件（.wav格式），适用于语音助手、内容创作、无障碍服务等场景。&lt;/p>
 &lt;h2 id="主要特性">主要特性&lt;/h2>
