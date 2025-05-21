@@ -1,10 +1,12 @@
 +++
-title = '基于 FunAudioLLM/SenseVoiceSmall 搭建高效语音转录服务的实践之路'
+title = '基于FunAudioLLM/SenseVoiceSmall搭建高效语音转录服务的实践之路'
 date = 2025-05-21T15:43:08+08:00
 draft = false
 tags = ["ASR", "SenseVoice", "FastAPI", "FunASR"]
 categories = ["LLM"]
 +++
+
+# 基于FunAudioLLM/SenseVoiceSmall搭建高效语音转录服务的实践之路
 
 ## 项目概述
 
