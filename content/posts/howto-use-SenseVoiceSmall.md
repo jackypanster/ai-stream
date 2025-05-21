@@ -2,10 +2,8 @@
 title = '基于 FunAudioLLM/SenseVoiceSmall 搭建高效语音转录服务的实践之路'
 date = 2025-05-21T15:43:08+08:00
 draft = false
-tags = ["ASR", "SenseVoice", "FastAPI", "Python", "AI", "FunASR", "uv"]
+tags = ["ASR", "SenseVoice", "FastAPI", "FunASR"]
 categories = ["LLM"]
-author = "Jacky Pan"
-description = "详细记录了使用 SenseVoiceSmall 模型和 FastAPI 框架搭建语音转文本服务的过程，包括环境配置、核心代码、遇到的主要问题及解决方案，并对比了其他主流 ASR 模型。"
 +++
 
 ## 项目概述
