@@ -1,4 +1,5 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>SenseVoice on AI 避难所</title><link>https://jackypanster.github.io/ai-stream/tags/sensevoice/</link><description>Recent content in SenseVoice on AI 避难所</description><generator>Hugo -- 0.147.4</generator><language>en-us</language><lastBuildDate>Wed, 21 May 2025 15:43:08 +0800</lastBuildDate><atom:link href="https://jackypanster.github.io/ai-stream/tags/sensevoice/index.xml" rel="self" type="application/rss+xml"/><item><title>基于 FunAudioLLM/SenseVoiceSmall 搭建高效语音转录服务的实践之路</title><link>https://jackypanster.github.io/ai-stream/posts/howto-use-sensevoicesmall/</link><pubDate>Wed, 21 May 2025 15:43:08 +0800</pubDate><guid>https://jackypanster.github.io/ai-stream/posts/howto-use-sensevoicesmall/</guid><description>&lt;h2 id="项目概述">项目概述&lt;/h2>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>SenseVoice on AI 避难所</title><link>https://jackypanster.github.io/ai-stream/tags/sensevoice/</link><description>Recent content in SenseVoice on AI 避难所</description><generator>Hugo -- 0.147.7</generator><language>en-us</language><lastBuildDate>Wed, 21 May 2025 15:43:08 +0800</lastBuildDate><atom:link href="https://jackypanster.github.io/ai-stream/tags/sensevoice/index.xml" rel="self" type="application/rss+xml"/><item><title>基于FunAudioLLM/SenseVoiceSmall搭建高效语音转录服务的实践之路</title><link>https://jackypanster.github.io/ai-stream/posts/howto-use-sensevoicesmall/</link><pubDate>Wed, 21 May 2025 15:43:08 +0800</pubDate><guid>https://jackypanster.github.io/ai-stream/posts/howto-use-sensevoicesmall/</guid><description>&lt;h1 id="基于funaudiollmsensevoicesmall搭建高效语音转录服务的实践之路">基于FunAudioLLM/SenseVoiceSmall搭建高效语音转录服务的实践之路&lt;/h1>
+&lt;h2 id="项目概述">项目概述&lt;/h2>
 &lt;p>实现一个语音转录文本（ASR）的服务，目标是能够高效地将用户上传的音频文件转换为文字。出于中文语音的考虑，选择了来自 &lt;code>FunAudioLLM&lt;/code> 的 &lt;code>SenseVoiceSmall&lt;/code> 模型，它以其多语种支持、高效率以及集成的语音理解能力（如情感识别、事件检测）吸引了我。本文将详细记录从环境配置、核心功能实现到踩坑解决的全过程，并分享一些关于模型选型的思考。&lt;/p>
 &lt;p>完整代码已开源在 GitHub 仓库：&lt;a href="https://github.com/jackypanster/FunAudioLLM-SenseVoiceSmall">https://github.com/jackypanster/FunAudioLLM-SenseVoiceSmall&lt;/a>&lt;/p>
 &lt;p>项目需求文档（&lt;code>prd.md&lt;/code>）关键信息如下：&lt;/p>
@@ -32,7 +33,8 @@
 &lt;li>&lt;code>app/schemas.py&lt;/code>: 定义 API 的请求和响应数据模型 (Pydantic models)。&lt;/li>
 &lt;/ul>
 &lt;h3 id="api-端点">API 端点&lt;/h3>
-&lt;p>关键的 API 端点设计为：&lt;/p></description><content:encoded><![CDATA[<h2 id="项目概述">项目概述</h2>
+&lt;p>关键的 API 端点设计为：&lt;/p></description><content:encoded><![CDATA[<h1 id="基于funaudiollmsensevoicesmall搭建高效语音转录服务的实践之路">基于FunAudioLLM/SenseVoiceSmall搭建高效语音转录服务的实践之路</h1>
+<h2 id="项目概述">项目概述</h2>
 <p>实现一个语音转录文本（ASR）的服务，目标是能够高效地将用户上传的音频文件转换为文字。出于中文语音的考虑，选择了来自 <code>FunAudioLLM</code> 的 <code>SenseVoiceSmall</code> 模型，它以其多语种支持、高效率以及集成的语音理解能力（如情感识别、事件检测）吸引了我。本文将详细记录从环境配置、核心功能实现到踩坑解决的全过程，并分享一些关于模型选型的思考。</p>
 <p>完整代码已开源在 GitHub 仓库：<a href="https://github.com/jackypanster/FunAudioLLM-SenseVoiceSmall">https://github.com/jackypanster/FunAudioLLM-SenseVoiceSmall</a></p>
 <p>项目需求文档（<code>prd.md</code>）关键信息如下：</p>
