@@ -1,4 +1,241 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>AI 避难所</title><link>https://jackypanster.github.io/ai-stream/</link><description>Recent content on AI 避难所</description><generator>Hugo -- 0.147.7</generator><language>en-us</language><lastBuildDate>Wed, 04 Jun 2025 14:30:00 +0800</lastBuildDate><atom:link href="https://jackypanster.github.io/ai-stream/index.xml" rel="self" type="application/rss+xml"/><item><title>Qwen3-30B 技术优化实践（二）：思考模式控制与15-20%性能提升</title><link>https://jackypanster.github.io/ai-stream/posts/deploy-qwen3-part2/</link><pubDate>Wed, 04 Jun 2025 14:30:00 +0800</pubDate><guid>https://jackypanster.github.io/ai-stream/posts/deploy-qwen3-part2/</guid><description>&lt;h1 id="qwen3-30b-技术优化实践二思考模式控制与性能提升">Qwen3-30B 技术优化实践（二）：思考模式控制与性能提升&lt;/h1>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>AI 避难所</title><link>https://jackypanster.github.io/ai-stream/</link><description>Recent content on AI 避难所</description><generator>Hugo -- 0.147.7</generator><language>en-us</language><lastBuildDate>Sat, 07 Jun 2025 17:50:00 +0800</lastBuildDate><atom:link href="https://jackypanster.github.io/ai-stream/index.xml" rel="self" type="application/rss+xml"/><item><title>DeepSeek-R1-0528-Qwen3-8B部署优化实践</title><link>https://jackypanster.github.io/ai-stream/posts/deploy-deepseek-r1-qwen3-8b-optimization/</link><pubDate>Sat, 07 Jun 2025 17:50:00 +0800</pubDate><guid>https://jackypanster.github.io/ai-stream/posts/deploy-deepseek-r1-qwen3-8b-optimization/</guid><description>&lt;h1 id="deepseek-r1-0528-qwen3-8b部署优化实践性能与稳定性的平衡艺术">DeepSeek-R1-0528-Qwen3-8B部署优化实践：性能与稳定性的平衡艺术&lt;/h1>
+&lt;p>在AI大模型部署领域，本文详细记录对DeepSeek-R1-0528-Qwen3-8B模型使用vLLM进行部署优化的全过程，重点关注上下文窗口长度与硬件资源利用的平衡调优。&lt;/p>
+&lt;h2 id="环境与基础设施">环境与基础设施&lt;/h2>
+&lt;p>我们的部署环境具备以下配置：&lt;/p>
+&lt;ul>
+&lt;li>&lt;strong>GPU&lt;/strong>: 4 x NVIDIA RTX 2080 Ti（每张22GB显存，总计88GB显存）
+&lt;ul>
+&lt;li>架构: Turing&lt;/li>
+&lt;li>计算能力: 7.5&lt;/li>
+&lt;/ul>
+&lt;/li>
+&lt;li>&lt;strong>CPU&lt;/strong>: 56核&lt;/li>
+&lt;li>&lt;strong>内存&lt;/strong>: 512GB RAM&lt;/li>
+&lt;li>&lt;strong>存储&lt;/strong>: 2TB SSD&lt;/li>
+&lt;li>&lt;strong>操作系统&lt;/strong>: Ubuntu 24.04&lt;/li>
+&lt;li>&lt;strong>容器镜像&lt;/strong>: &lt;code>vllm/vllm-openai:v0.8.5&lt;/code>&lt;/li>
+&lt;li>&lt;strong>NVIDIA驱动&lt;/strong>: 570.153.02（CUDA 12.8）&lt;/li>
+&lt;/ul>
+&lt;h2 id="优化前的部署脚本分析">优化前的部署脚本分析&lt;/h2>
+&lt;p>我们最初的部署脚本如下：&lt;/p>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>docker run &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -d &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --gpus all &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --name coder &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --shm-size 16g &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --ulimit memlock&lt;span style="color:#f92672">=&lt;/span>-1 &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --restart always &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --ipc&lt;span style="color:#f92672">=&lt;/span>host &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -v /home/llm/model/deepseek/DeepSeek-R1-0528-Qwen3-8B:/models &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -p 8000:8000 &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> -e CUDA_MODULE_LOADING&lt;span style="color:#f92672">=&lt;/span>LAZY &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> vllm/vllm-openai:v0.8.5 &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --model /models &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --served-model-name coder &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --tensor-parallel-size &lt;span style="color:#ae81ff">4&lt;/span> &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --gpu-memory-utilization 0.93 &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --dtype float16 &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --max-model-len &lt;span style="color:#ae81ff">65536&lt;/span> &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --trust-remote-code &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --load-format safetensors &lt;span style="color:#ae81ff">\
+&lt;/span>&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>&lt;span style="color:#ae81ff">&lt;/span> --disable-custom-all-reduce
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;p>通过分析，我们发现几个可以优化的关键点：&lt;/p></description><content:encoded><![CDATA[<h1 id="deepseek-r1-0528-qwen3-8b部署优化实践性能与稳定性的平衡艺术">DeepSeek-R1-0528-Qwen3-8B部署优化实践：性能与稳定性的平衡艺术</h1>
+<p>在AI大模型部署领域，本文详细记录对DeepSeek-R1-0528-Qwen3-8B模型使用vLLM进行部署优化的全过程，重点关注上下文窗口长度与硬件资源利用的平衡调优。</p>
+<h2 id="环境与基础设施">环境与基础设施</h2>
+<p>我们的部署环境具备以下配置：</p>
+<ul>
+<li><strong>GPU</strong>: 4 x NVIDIA RTX 2080 Ti（每张22GB显存，总计88GB显存）
+<ul>
+<li>架构: Turing</li>
+<li>计算能力: 7.5</li>
+</ul>
+</li>
+<li><strong>CPU</strong>: 56核</li>
+<li><strong>内存</strong>: 512GB RAM</li>
+<li><strong>存储</strong>: 2TB SSD</li>
+<li><strong>操作系统</strong>: Ubuntu 24.04</li>
+<li><strong>容器镜像</strong>: <code>vllm/vllm-openai:v0.8.5</code></li>
+<li><strong>NVIDIA驱动</strong>: 570.153.02（CUDA 12.8）</li>
+</ul>
+<h2 id="优化前的部署脚本分析">优化前的部署脚本分析</h2>
+<p>我们最初的部署脚本如下：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>docker run <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  -d <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --gpus all <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --name coder <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --shm-size 16g <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --ulimit memlock<span style="color:#f92672">=</span>-1 <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --restart always <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --ipc<span style="color:#f92672">=</span>host <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  -v /home/llm/model/deepseek/DeepSeek-R1-0528-Qwen3-8B:/models <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  -p 8000:8000 <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  -e CUDA_MODULE_LOADING<span style="color:#f92672">=</span>LAZY <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  vllm/vllm-openai:v0.8.5 <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --model /models <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --served-model-name coder <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --tensor-parallel-size <span style="color:#ae81ff">4</span> <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --gpu-memory-utilization 0.93 <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --dtype float16 <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --max-model-len <span style="color:#ae81ff">65536</span> <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --trust-remote-code <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --load-format safetensors <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --disable-custom-all-reduce
+</span></span></code></pre></div><p>通过分析，我们发现几个可以优化的关键点：</p>
+<ol>
+<li><strong>共享内存</strong>：16GB可能不足以支持高并发请求</li>
+<li><strong>交换空间</strong>：未配置SSD交换空间支持</li>
+<li><strong>批处理能力</strong>：未设置<code>--max-num-batched-tokens</code>参数</li>
+<li><strong>CUDA图形优化</strong>：未使用<code>--enforce-eager</code>提高稳定性</li>
+</ol>
+<h2 id="深入优化策略">深入优化策略</h2>
+<h3 id="1-内存与计算资源分配">1. 内存与计算资源分配</h3>
+<p>对于RTX 2080 Ti这类Turing架构GPU，我们需要特别注意显存分配与并行策略：</p>
+<ul>
+<li><strong>共享内存扩展</strong>：将<code>--shm-size</code>从16g增加到64g，充分利用512GB系统内存</li>
+<li><strong>显存利用率</strong>：维持<code>--gpu-memory-utilization 0.93</code>的激进但可控设置</li>
+<li><strong>张量并行化</strong>：保持<code>--tensor-parallel-size 4</code>充分利用所有GPU</li>
+<li><strong>批处理支持</strong>：添加<code>--max-num-batched-tokens 8192</code>提高吞吐量</li>
+</ul>
+<h3 id="2-稳定性与效率平衡">2. 稳定性与效率平衡</h3>
+<ul>
+<li><strong>CUDA执行模式</strong>：添加<code>--enforce-eager</code>参数，避免CUDA图捕获可能导致的OOM问题</li>
+<li><strong>交换空间支持</strong>：添加<code>--swap-space 32</code>参数，为处理长上下文提供额外内存保障</li>
+<li><strong>all-reduce优化</strong>：移除<code>--disable-custom-all-reduce</code>参数（注：日志显示系统自动禁用）</li>
+</ul>
+<h3 id="3-上下文长度设计">3. 上下文长度设计</h3>
+<p>虽然我们最终保留了<code>--max-model-len 65536</code>设置，但在生产环境中应当根据具体使用场景和稳定性需求考虑降至32768。对于大多数应用场景，这个长度已经足够，并且能提供更好的性能和稳定性平衡。</p>
+<h2 id="优化后的部署脚本">优化后的部署脚本</h2>
+<p>经过一系列优化，我们的最终部署脚本如下：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>docker run <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  -d <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --gpus all <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --name coder <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --shm-size 64g <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --ulimit memlock<span style="color:#f92672">=</span>-1 <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --restart always <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --ipc<span style="color:#f92672">=</span>host <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  -v /home/llm/model/deepseek/DeepSeek-R1-0528-Qwen3-8B:/models <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  -p 8000:8000 <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  -e CUDA_MODULE_LOADING<span style="color:#f92672">=</span>LAZY <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  vllm/vllm-openai:v0.8.5 <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --model /models <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --served-model-name coder <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --tensor-parallel-size <span style="color:#ae81ff">4</span> <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --gpu-memory-utilization 0.93 <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --dtype float16 <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --max-model-len <span style="color:#ae81ff">65536</span> <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --trust-remote-code <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --load-format safetensors <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --swap-space <span style="color:#ae81ff">32</span> <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --enforce-eager <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --max-num-batched-tokens <span style="color:#ae81ff">8192</span>
+</span></span></code></pre></div><h2 id="性能与资源分析">性能与资源分析</h2>
+<p>部署后，通过日志分析我们得到以下性能指标：</p>
+<pre tabindex="0"><code>Memory profiling takes 5.76 seconds
+the current vLLM instance can use total_gpu_memory (21.48GiB) x gpu_memory_utilization (0.93) = 19.98GiB
+model weights take 3.85GiB; non_torch_memory takes 0.20GiB; PyTorch activation peak memory takes 1.45GiB; the rest of the memory reserved for KV Cache is 14.49GiB.
+</code></pre><p>关键性能发现：</p>
+<ul>
+<li><strong>KV缓存空间</strong>：14.49GiB，足够支持65536 token的上下文处理</li>
+<li><strong>最大并发能力</strong>：可同时处理约6.44个最大长度（65536 tokens）的请求</li>
+<li><strong>初始化时间</strong>：31.86秒，相比未优化配置有所改善</li>
+</ul>
+<h2 id="实用部署建议">实用部署建议</h2>
+<p>根据我们的实践经验，提供以下部署建议：</p>
+<ol>
+<li>
+<p><strong>上下文长度选择</strong></p>
+<ul>
+<li>对于追求稳定性的生产环境：使用<code>--max-model-len 32768</code></li>
+<li>对于需要极限性能的场景：可尝试<code>--max-model-len 65536</code>但需密切监控稳定性</li>
+</ul>
+</li>
+<li>
+<p><strong>显存利用率调优</strong></p>
+<ul>
+<li>稳定性优先：<code>--gpu-memory-utilization 0.9</code></li>
+<li>性能优先：<code>--gpu-memory-utilization 0.93</code>或更高（需谨慎）</li>
+</ul>
+</li>
+<li>
+<p><strong>批处理参数优化</strong></p>
+<ul>
+<li>对于多用户场景：增加<code>--max-num-batched-tokens</code>至8192或更高</li>
+<li>对于单一复杂任务：可适当降低此参数，专注单任务性能</li>
+</ul>
+</li>
+<li>
+<p><strong>硬件资源分配</strong></p>
+<ul>
+<li>共享内存与系统内存比例：建议1:8左右（如512GB系统内存配置64GB共享内存）</li>
+<li>交换空间设置：根据SSD速度和容量，可设置为显存总量的1/3至1/2</li>
+</ul>
+</li>
+</ol>
+<h2 id="排障与验证">排障与验证</h2>
+<p>每次修改配置后，通过以下命令验证部署状态：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>curl http://localhost:8000/v1/models
+</span></span></code></pre></div><p>验证结果显示模型已成功部署，并返回了以下实际输出：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;object&#34;</span>: <span style="color:#e6db74">&#34;list&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;data&#34;</span>: [
+</span></span><span style="display:flex;"><span>    {
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;id&#34;</span>: <span style="color:#e6db74">&#34;coder&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;object&#34;</span>: <span style="color:#e6db74">&#34;model&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;created&#34;</span>: <span style="color:#ae81ff">1749289780</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;owned_by&#34;</span>: <span style="color:#e6db74">&#34;vllm&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;root&#34;</span>: <span style="color:#e6db74">&#34;/models&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;parent&#34;</span>: <span style="color:#66d9ef">null</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;max_model_len&#34;</span>: <span style="color:#ae81ff">65536</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;permission&#34;</span>: [
+</span></span><span style="display:flex;"><span>        {
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">&#34;id&#34;</span>: <span style="color:#e6db74">&#34;modelperm-ee339bc1702c402f8ae06ea2f1b05c7c&#34;</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">&#34;object&#34;</span>: <span style="color:#e6db74">&#34;model_permission&#34;</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">&#34;created&#34;</span>: <span style="color:#ae81ff">1749289780</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">&#34;allow_create_engine&#34;</span>: <span style="color:#66d9ef">false</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">&#34;allow_sampling&#34;</span>: <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">&#34;allow_logprobs&#34;</span>: <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">&#34;allow_search_indices&#34;</span>: <span style="color:#66d9ef">false</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">&#34;allow_view&#34;</span>: <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">&#34;allow_fine_tuning&#34;</span>: <span style="color:#66d9ef">false</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">&#34;organization&#34;</span>: <span style="color:#e6db74">&#34;*&#34;</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">&#34;group&#34;</span>: <span style="color:#66d9ef">null</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">&#34;is_blocking&#34;</span>: <span style="color:#66d9ef">false</span>
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>      ]
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  ]
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>从返回的JSON响应中，我们可以确认模型部署成功并解读以下关键信息：</p>
+<ul>
+<li><strong>id</strong>: &ldquo;coder&rdquo; - 确认我们的模型服务名称已正确设置</li>
+<li><strong>max_model_len</strong>: 65536 - 验证了我们设置的上下文窗口长度为65536 tokens</li>
+<li><strong>owned_by</strong>: &ldquo;vllm&rdquo; - 表明模型由vLLM服务管理</li>
+<li><strong>permission</strong>对象中：
+<ul>
+<li><strong>allow_sampling</strong>: true - 支持采样生成（temperature、top_p等参数）</li>
+<li><strong>allow_logprobs</strong>: true - 支持输出token概率</li>
+<li><strong>organization</strong>: &ldquo;*&rdquo; - 允许所有组织访问模型</li>
+</ul>
+</li>
+</ul>
+<p>这些参数确认了我们的部署配置已经正确应用，且模型服务已准备好接收推理请求。</p>
+<h2 id="结论与未来方向">结论与未来方向</h2>
+<p>通过精心调整vLLM参数，我们成功实现了DeepSeek-R1-0528-Qwen3-8B模型的高效部署，在有限的RTX 2080 Ti显卡上实现了最大化的性能和上下文长度。</p>
+<p>未来的优化方向可以探索：</p>
+<ol>
+<li><strong>进一步量化研究</strong>：探索int8量化对性能和质量的影响</li>
+<li><strong>调度策略优化</strong>：通过<code>--scheduler-delay-factor</code>和<code>--preemption-mode</code>参数优化多用户场景</li>
+<li><strong>自动扩缩容方案</strong>：根据负载动态调整GPU分配</li>
+</ol>
+<p>希望这份部署优化实践能为更多工程师提供参考，在大模型部署中找到性能与稳定性的最佳平衡点。</p>
+<h2 id="参考资料">参考资料</h2>
+<ol>
+<li><a href="https://docs.vllm.ai/">vLLM官方文档</a></li>
+<li><a href="https://github.com/QwenLM/Qwen">Qwen3系列模型说明</a></li>
+<li><a href="https://github.com/deepseek-ai">DeepSeek R1模型系列介绍</a></li>
+</ol>
+]]></content:encoded></item><item><title>Qwen3-30B 技术优化实践（二）：思考模式控制与15-20%性能提升</title><link>https://jackypanster.github.io/ai-stream/posts/deploy-qwen3-part2/</link><pubDate>Wed, 04 Jun 2025 14:30:00 +0800</pubDate><guid>https://jackypanster.github.io/ai-stream/posts/deploy-qwen3-part2/</guid><description>&lt;h1 id="qwen3-30b-技术优化实践二思考模式控制与性能提升">Qwen3-30B 技术优化实践（二）：思考模式控制与性能提升&lt;/h1>
 &lt;blockquote>
 &lt;p>本文是&lt;a href="blog-post.md">《从32K到131K：Qwen3-30B大模型上下文扩展实践》&lt;/a>的续篇，聚焦于模型性能调优特别是思考模式（reasoning mode）控制的技术细节与实践经验。&lt;/p>&lt;/blockquote>
 &lt;p>在前文中，我们详细介绍了如何使用YaRN技术将Qwen3-30B的上下文长度从32K扩展到131K。今天，我们将深入探讨另一个关键优化维度：&lt;strong>思考模式控制&lt;/strong>及其对性能的影响。通过一系列实验和调优，我们发现禁用思考模式可以显著提升模型响应速度和内存效率，特别适合编程和直接输出类任务场景。&lt;/p>
