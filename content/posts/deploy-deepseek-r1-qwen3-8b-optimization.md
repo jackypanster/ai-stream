@@ -107,7 +107,8 @@ docker run \
   --load-format safetensors \
   --swap-space 32 \
   --enforce-eager \
-  --max-num-batched-tokens 8192
+  --max-num-batched-tokens 8192 \
+  --chat-template /models/qwen3_programming.jinja
 ```
 
 ## 性能与资源分析
@@ -199,6 +200,75 @@ curl http://localhost:8000/v1/models
   - **organization**: "*" - 允许所有组织访问模型
 
 这些参数确认了我们的部署配置已经正确应用，且模型服务已准备好接收推理请求。
+
+## 专用编程提示词模板
+
+由于DeepSeek-R1-0528-Qwen3-8B模型特别适合编程任务，我们在部署中加入了专门的提示词模板来优化其编程能力。我们已经通过`--chat-template`参数指定了模板路径，模板内容如下：
+
+```jinja
+{# Enhanced template for Qwen3 optimized for programming tasks #}
+{% if messages[0]['role'] == 'system' %}
+    {% set loop_messages = messages[1:] %}
+    {% set system_message = messages[0]['content'] %}
+{% else %}
+    {% set loop_messages = messages %}
+    {% set system_message = "You are a programming assistant specialized in writing clean, efficient, and well-documented code. Provide direct code solutions without unnecessary explanations unless requested. Focus on best practices, optimal algorithms, and proper error handling. When multiple approaches exist, choose the most efficient one by default. Always include necessary imports and dependencies." %}
+{% endif %}
+
+{# Always include system message for programming optimization #}
+<|im_start|>system
+{{ system_message }}<|im_end|>
+
+{% for message in loop_messages %}
+    {% if message['role'] == 'user' %}
+<|im_start|>user
+{{ message['content'] }}<|im_end|>
+    {% elif message['role'] == 'assistant' %}
+<|im_start|>assistant
+{{ message['content'] }}<|im_end|>
+    {% elif message['role'] == 'tool' %}
+<|im_start|>tool
+{{ message['content'] }}<|im_end|>
+    {% else %}
+<|im_start|>{{ message['role'] }}
+{{ message['content'] }}<|im_end|>
+    {% endif %}
+{% endfor %}
+
+{% if add_generation_prompt %}
+<|im_start|>assistant
+{% endif %}
+```
+
+此模板具有以下特性：
+
+1. **专业编程指令**：默认系统提示词专门针对编程任务优化，强调代码质量、效率和文档
+2. **直接输出**：倾向于直接提供代码解决方案，减少不必要的解释（除非特别要求）
+3. **标准化格式**：使用`<|im_start|>`和`<|im_end|>`标记清晰界定不同角色的消息
+4. **灵活性**：允许覆盖默认系统提示词，以适应特定编程场景
+
+在实际使用中，可以将该模板与vLLM的API调用结合，例如：
+
+```python
+import requests
+
+url = "http://localhost:8000/v1/chat/completions"
+headers = {"Content-Type": "application/json"}
+
+payload = {
+    "model": "coder",
+    "messages": [
+        {"role": "user", "content": "写一个Python函数计算斐波那契数列的第n项，要求使用动态规划优化性能"}
+    ],
+    "temperature": 0.2,
+    "response_format": {"type": "text"}
+}
+
+response = requests.post(url, headers=headers, json=payload)
+print(response.json())
+```
+
+通过这种方式，我们可以充分发挥模型在编程领域的专长，获得更高质量、更符合工程实践的代码输出。
 
 ## 结论与未来方向
 
