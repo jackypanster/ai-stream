@@ -36,7 +36,7 @@ apparmor.systemd[12546]: Warning: found usr.sbin.sssd in /etc/apparmor.d/force-c
 ### 1. 语法修复：修正AppArmor函数库# 定位关键函数
 sudo nano /lib/apparmor/rc.apparmor.functions
 
-# 修改check_userns函数中的比较符
+- 修改check_userns函数中的比较符
 原代码：
 if [ "$userns_restricted" -eq 1 ]; then
 修正后：
@@ -44,28 +44,28 @@ if [ "$userns_restricted" = "1" ]; then
 ### 2. 服务卸载与配置清理# 彻底卸载SSSD
 sudo apt remove --purge sssd sssd-tools
 
-# 删除主目录配置
+- 删除主目录配置
 sudo rm -f /etc/apparmor.d/usr.sbin.sssd
 
-# 发现并删除local目录残留
+- 发现并删除local目录残留
 sudo find /etc/apparmor.d/ -name "*sssd*" 
-# 输出：/etc/apparmor.d.local/usr.sbin.sssd
+- 输出：/etc/apparmor.d.local/usr.sbin.sssd
 sudo rm -f /etc/apparmor.d.local/usr.sbin.sssd
 ### 3. 运行时状态重置# 停止AppArmor服务
 sudo systemctl stop apparmor
 
-# （注意：Ubuntu内核内置AppArmor，无需modprobe卸载模块）
+- （注意：Ubuntu内核内置AppArmor，无需modprobe卸载模块）
 
-# 强制重新加载配置并清除缓存
+- 强制重新加载配置并清除缓存
 sudo apparmor_parser -r /etc/apparmor.d/
 sudo systemctl restart apparmor
 ### 4. 终极验证# 检查配置是否彻底移除
 sudo apparmor_status | grep sssd 
-# 预期输出：无任何结果
+- 预期输出：无任何结果
 
-# 确认服务状态
+- 确认服务状态
 sudo systemctl status apparmor 
-# 理想状态：active (exited) 且无警告日志
+- 理想状态：active (exited) 且无警告日志
 ## 四、技术总结与最佳实践
 
 ### 1. AppArmor运维关键点
