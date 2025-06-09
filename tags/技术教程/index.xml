@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>技术教程 on AI 避难所</title><link>https://jackypanster.github.io/ai-stream/tags/%E6%8A%80%E6%9C%AF%E6%95%99%E7%A8%8B/</link><description>Recent content in 技术教程 on AI 避难所</description><generator>Hugo -- 0.147.8</generator><language>en-us</language><lastBuildDate>Mon, 09 Jun 2025 11:19:33 +0800</lastBuildDate><atom:link href="https://jackypanster.github.io/ai-stream/tags/%E6%8A%80%E6%9C%AF%E6%95%99%E7%A8%8B/index.xml" rel="self" type="application/rss+xml"/><item><title>AppArmor配置残留问题排查与彻底解决：从报错到系统净化的完整实践</title><link>https://jackypanster.github.io/ai-stream/posts/apparmor-troubleshooting/</link><pubDate>Mon, 09 Jun 2025 11:19:33 +0800</pubDate><guid>https://jackypanster.github.io/ai-stream/posts/apparmor-troubleshooting/</guid><description>深入解析Ubuntu系统中AppArmor服务的SSSD配置残留问题，从原理分析到彻底解决的完整技术指南，适合系统运维工程师参考。</description><content:encoded><![CDATA[<h2 id="一问题背景警告频发的sssd配置残留">一、问题背景：警告频发的SSSD配置残留</h2>
+<p>在Ubuntu服务器维护过程中，长期被AppArmor服务的SSSD相关警告困扰。具体表现为：</p>
+<ul>
+<li>每次重启AppArmor服务时，日志频繁提示<code>Warning: found usr.sbin.sssd in /etc/apparmor.d/force-complain</code></li>
+<li><code>apparmor_status</code>持续显示<code>/usr/sbin/sssd</code>配置存在，但实际已卸载SSSD服务</li>
+<li>系统日志中伴随<code>Caching disabled for: 'usr.sbin.sssd' due to force complain</code>警告，影响服务稳定性评估</li>
+</ul>
+<h2 id="二技术分析深入apparmor的配置逻辑">二、技术分析：深入AppArmor的配置逻辑</h2>
+<h3 id="1-apparmor的配置加载机制">1. AppArmor的配置加载机制</h3>
+<ul>
+<li><strong>主配置目录</strong>：<code>/etc/apparmor.d/</code> 存放系统级配置</li>
+<li><strong>本地覆盖目录</strong>：<code>/etc/apparmor.d.local/</code> 优先级高于主目录，用于本地自定义策略</li>
+<li><strong>运行时缓存</strong>：AppArmor会将配置加载到内核并缓存，即使删除文件也可能残留运行时状态</li>
+</ul>
+<h3 id="2-sssd服务的特殊性">2. SSSD服务的特殊性</h3>
+<ul>
+<li>该服务默认随Ubuntu部分版本安装，提供LDAP/NIS等认证功能</li>
+<li>卸载时默认保留配置文件（<code>/etc/apparmor.d/usr.sbin.sssd</code>），导致AppArmor持续尝试加载已删除服务的策略</li>
+</ul>
+<h3 id="3-关键报错溯源-核心错误日志">3. 关键报错溯源# 核心错误日志</h3>
+<p>apparmor.systemd[12435]: /lib/apparmor/apparmor.systemd: 148: [: Illegal number: yes
+apparmor.systemd[12546]: Warning: found usr.sbin.sssd in /etc/apparmor.d/force-complain, forcing complain mode- 语法错误源于<code>rc.apparmor.functions</code>中数值比较符误用（<code>-eq</code>未转义字符串）</p>
+<ul>
+<li>警告本质是残留配置与运行时状态的冲突</li>
+</ul>
+<h2 id="三分步解决方案从手动清理到内核级重置">三、分步解决方案：从手动清理到内核级重置</h2>
+<h3 id="1-语法修复修正apparmor函数库-定位关键函数">1. 语法修复：修正AppArmor函数库# 定位关键函数</h3>
+<p>sudo nano /lib/apparmor/rc.apparmor.functions</p>
+<h1 id="修改check_userns函数中的比较符">修改check_userns函数中的比较符</h1>
+<p>原代码：
+if [ &ldquo;$userns_restricted&rdquo; -eq 1 ]; then
+修正后：
+if [ &ldquo;$userns_restricted&rdquo; = &ldquo;1&rdquo; ]; then</p>
+<h3 id="2-服务卸载与配置清理-彻底卸载sssd">2. 服务卸载与配置清理# 彻底卸载SSSD</h3>
+<p>sudo apt remove &ndash;purge sssd sssd-tools</p>
+<h1 id="删除主目录配置">删除主目录配置</h1>
+<p>sudo rm -f /etc/apparmor.d/usr.sbin.sssd</p>
+<h1 id="发现并删除local目录残留">发现并删除local目录残留</h1>
+<p>sudo find /etc/apparmor.d/ -name &ldquo;<em>sssd</em>&rdquo;</p>
+<h1 id="输出etcapparmordlocalusrsbinsssd">输出：/etc/apparmor.d.local/usr.sbin.sssd</h1>
+<p>sudo rm -f /etc/apparmor.d.local/usr.sbin.sssd</p>
+<h3 id="3-运行时状态重置-停止apparmor服务">3. 运行时状态重置# 停止AppArmor服务</h3>
+<p>sudo systemctl stop apparmor</p>
+<h1 id="注意ubuntu内核内置apparmor无需modprobe卸载模块">（注意：Ubuntu内核内置AppArmor，无需modprobe卸载模块）</h1>
+<h1 id="强制重新加载配置并清除缓存">强制重新加载配置并清除缓存</h1>
+<p>sudo apparmor_parser -r /etc/apparmor.d/
+sudo systemctl restart apparmor</p>
+<h3 id="4-终极验证-检查配置是否彻底移除">4. 终极验证# 检查配置是否彻底移除</h3>
+<p>sudo apparmor_status | grep sssd</p>
+<h1 id="预期输出无任何结果">预期输出：无任何结果</h1>
+<h1 id="确认服务状态">确认服务状态</h1>
+<p>sudo systemctl status apparmor</p>
+<h1 id="理想状态active-exited-且无警告日志">理想状态：active (exited) 且无警告日志</h1>
+<h2 id="四技术总结与最佳实践">四、技术总结与最佳实践</h2>
+<h3 id="1-apparmor运维关键点">1. AppArmor运维关键点</h3>
+<ul>
+<li><strong>配置优先级</strong>：<code>local/</code>目录配置会覆盖主目录，卸载服务后需特别检查</li>
+<li><strong>缓存机制</strong>：修改配置后需通过<code>-r</code>参数或重启服务清除内核缓存</li>
+<li><strong>内置模块特性</strong>：Ubuntu官方内核默认内置AppArmor，避免使用<code>modprobe</code>操作模块</li>
+</ul>
+<h3 id="2-服务卸载规范-标准卸载流程">2. 服务卸载规范# 标准卸载流程</h3>
+<ol>
+<li>停止服务：sudo systemctl stop <!-- raw HTML omitted --></li>
+<li>卸载软件包：sudo apt remove &ndash;purge <!-- raw HTML omitted --></li>
+<li>搜索残留配置：sudo find /etc/ -name &ldquo;<em><!-- raw HTML omitted --></em>&rdquo;</li>
+<li>清理日志与缓存：sudo rm -rf /var/log/<!-- raw HTML omitted --> /var/cache/<!-- raw HTML omitted --></li>
+</ol>
+<h3 id="3-常见问题预判">3. 常见问题预判</h3>
+<ul>
+<li><strong>Q：为何删除文件后警告仍存在？</strong><br>
+A：AppArmor内核缓存未更新，需通过<code>systemctl restart apparmor</code>强制刷新</li>
+<li><strong>Q：能否直接禁用AppArmor？</strong><br>
+A：不建议。作为系统安全核心组件，禁用会导致权限控制失效，应优先清理配置而非关闭服务</li>
+</ul>
+<h2 id="五结语">五、结语</h2>
+<p>本次排障深入操作系统安全模块的底层逻辑，通过「语法修复→服务卸载→配置清理→状态重置」的完整链路，彻底解决了长期存在的配置残留问题。实践表明，处理系统级安全组件时，需兼顾文件系统清理与内核运行时状态管理，同时重视配置目录的优先级规则。希望本文能为运维工程师在处理类似问题时提供可复用的技术范式，在保证系统安全性的前提下实现高效维护。</p>
+<p><strong>参考资料</strong></p>
+<ul>
+<li><a href="https://gitlab.com/apparmor/apparmor/wikis/home">AppArmor官方文档</a></li>
+<li><a href="https://ubuntu.com/server/docs/service-management">Ubuntu服务管理最佳实践</a></li>
+<li><a href="https://www.kernel.org/doc/html/latest/security/apparmor.html">Linux内核模块与AppArmor集成机制</a></li>
+</ul>
+]]></content:encoded></item></channel></rss>
