@@ -26,31 +26,55 @@ apparmor.systemd[12546]: Warning: found usr.sbin.sssd in /etc/apparmor.d/force-c
 <h2 id="三分步解决方案从手动清理到内核级重置">三、分步解决方案：从手动清理到内核级重置</h2>
 <h3 id="1-语法修复修正apparmor函数库-定位关键函数">1. 语法修复：修正AppArmor函数库# 定位关键函数</h3>
 <p>sudo nano /lib/apparmor/rc.apparmor.functions</p>
-<h1 id="修改check_userns函数中的比较符">修改check_userns函数中的比较符</h1>
-<p>原代码：
+<ul>
+<li>修改check_userns函数中的比较符
+原代码：
 if [ &ldquo;$userns_restricted&rdquo; -eq 1 ]; then
 修正后：
-if [ &ldquo;$userns_restricted&rdquo; = &ldquo;1&rdquo; ]; then</p>
+if [ &ldquo;$userns_restricted&rdquo; = &ldquo;1&rdquo; ]; then</li>
+</ul>
 <h3 id="2-服务卸载与配置清理-彻底卸载sssd">2. 服务卸载与配置清理# 彻底卸载SSSD</h3>
 <p>sudo apt remove &ndash;purge sssd sssd-tools</p>
-<h1 id="删除主目录配置">删除主目录配置</h1>
-<p>sudo rm -f /etc/apparmor.d/usr.sbin.sssd</p>
-<h1 id="发现并删除local目录残留">发现并删除local目录残留</h1>
-<p>sudo find /etc/apparmor.d/ -name &ldquo;<em>sssd</em>&rdquo;</p>
-<h1 id="输出etcapparmordlocalusrsbinsssd">输出：/etc/apparmor.d.local/usr.sbin.sssd</h1>
-<p>sudo rm -f /etc/apparmor.d.local/usr.sbin.sssd</p>
+<ul>
+<li>
+<p>删除主目录配置
+sudo rm -f /etc/apparmor.d/usr.sbin.sssd</p>
+</li>
+<li>
+<p>发现并删除local目录残留
+sudo find /etc/apparmor.d/ -name &ldquo;<em>sssd</em>&rdquo;</p>
+</li>
+<li>
+<p>输出：/etc/apparmor.d.local/usr.sbin.sssd
+sudo rm -f /etc/apparmor.d.local/usr.sbin.sssd</p>
+</li>
+</ul>
 <h3 id="3-运行时状态重置-停止apparmor服务">3. 运行时状态重置# 停止AppArmor服务</h3>
 <p>sudo systemctl stop apparmor</p>
-<h1 id="注意ubuntu内核内置apparmor无需modprobe卸载模块">（注意：Ubuntu内核内置AppArmor，无需modprobe卸载模块）</h1>
-<h1 id="强制重新加载配置并清除缓存">强制重新加载配置并清除缓存</h1>
-<p>sudo apparmor_parser -r /etc/apparmor.d/
+<ul>
+<li>
+<p>（注意：Ubuntu内核内置AppArmor，无需modprobe卸载模块）</p>
+</li>
+<li>
+<p>强制重新加载配置并清除缓存
+sudo apparmor_parser -r /etc/apparmor.d/
 sudo systemctl restart apparmor</p>
+</li>
+</ul>
 <h3 id="4-终极验证-检查配置是否彻底移除">4. 终极验证# 检查配置是否彻底移除</h3>
 <p>sudo apparmor_status | grep sssd</p>
-<h1 id="预期输出无任何结果">预期输出：无任何结果</h1>
-<h1 id="确认服务状态">确认服务状态</h1>
-<p>sudo systemctl status apparmor</p>
-<h1 id="理想状态active-exited-且无警告日志">理想状态：active (exited) 且无警告日志</h1>
+<ul>
+<li>
+<p>预期输出：无任何结果</p>
+</li>
+<li>
+<p>确认服务状态
+sudo systemctl status apparmor</p>
+</li>
+<li>
+<p>理想状态：active (exited) 且无警告日志</p>
+</li>
+</ul>
 <h2 id="四技术总结与最佳实践">四、技术总结与最佳实践</h2>
 <h3 id="1-apparmor运维关键点">1. AppArmor运维关键点</h3>
 <ul>
