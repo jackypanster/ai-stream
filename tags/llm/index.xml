@@ -1,4 +1,232 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>LLM on AI 避难所</title><link>https://jackypanster.github.io/ai-stream/tags/llm/</link><description>Recent content in LLM on AI 避难所</description><generator>Hugo -- 0.147.8</generator><language>en-us</language><lastBuildDate>Sat, 07 Jun 2025 17:50:00 +0800</lastBuildDate><atom:link href="https://jackypanster.github.io/ai-stream/tags/llm/index.xml" rel="self" type="application/rss+xml"/><item><title>DeepSeek-R1-0528-Qwen3-8B部署优化实践</title><link>https://jackypanster.github.io/ai-stream/posts/deploy-deepseek-r1-qwen3-8b-optimization/</link><pubDate>Sat, 07 Jun 2025 17:50:00 +0800</pubDate><guid>https://jackypanster.github.io/ai-stream/posts/deploy-deepseek-r1-qwen3-8b-optimization/</guid><description>&lt;h1 id="deepseek-r1-0528-qwen3-8b部署优化实践性能与稳定性的平衡艺术">DeepSeek-R1-0528-Qwen3-8B部署优化实践：性能与稳定性的平衡艺术&lt;/h1>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>LLM on AI 避难所</title><link>https://jackypanster.github.io/ai-stream/tags/llm/</link><description>Recent content in LLM on AI 避难所</description><generator>Hugo -- 0.147.8</generator><language>en-us</language><lastBuildDate>Tue, 10 Jun 2025 20:45:00 +0800</lastBuildDate><atom:link href="https://jackypanster.github.io/ai-stream/tags/llm/index.xml" rel="self" type="application/rss+xml"/><item><title>Qwen3-32B-AWQ 高效部署：基于 vLLM 的深度实践与优化</title><link>https://jackypanster.github.io/ai-stream/posts/deploy-qwen3-32b-awq-vllm-guide/</link><pubDate>Tue, 10 Jun 2025 20:45:00 +0800</pubDate><guid>https://jackypanster.github.io/ai-stream/posts/deploy-qwen3-32b-awq-vllm-guide/</guid><description>本文详细介绍了如何使用 vLLM 高效部署 Qwen3-32B-AWQ 量化模型，实现 32K 上下文窗口、OpenAI 兼容 API，并禁用思考模式。通过对 Docker 及 vLLM 参数的精细调优，最大化模型在多 GPU 环境下的推理性能。</description><content:encoded><![CDATA[<ul>
+<li><a href="#%E6%A6%82%E8%BF%B0">📋 概述</a></li>
+<li><a href="#%E7%B3%BB%E7%BB%9F%E4%B8%8E%E7%8E%AF%E5%A2%83%E8%A6%81%E6%B1%82">🖥️ 系统与环境要求</a>
+<ul>
+<li><a href="#%E7%A1%AC%E4%BB%B6%E9%85%8D%E7%BD%AE">硬件配置</a></li>
+<li><a href="#%E8%BD%AF%E4%BB%B6%E7%8E%AF%E5%A2%83">软件环境</a></li>
+</ul>
+</li>
+<li><a href="#%E6%A8%A1%E5%9E%8B%E4%B8%8E%E9%83%A8%E7%BD%B2%E6%9E%B6%E6%9E%84%E8%A7%A3%E6%9E%90">🧠 模型与部署架构解析</a>
+<ul>
+<li><a href="#qwen3-32b-awq-%E6%A8%A1%E5%9E%8B%E7%89%B9%E6%80%A7">Qwen3-32B-AWQ 模型特性</a></li>
+<li><a href="#vllm%E4%B8%BA%E4%BD%95%E9%80%89%E6%8B%A9%E5%AE%83">vLLM：为何选择它？</a></li>
+<li><a href="#%E5%85%B3%E9%94%AE%E9%9C%80%E6%B1%82%E7%A6%81%E7%94%A8%E6%80%9D%E8%80%83%E6%A8%A1%E5%BC%8F-enable_thinkingfalse">关键需求：禁用思考模式 (enable_thinking=False)</a></li>
+</ul>
+</li>
+<li><a href="#%E6%A0%B8%E5%BF%83%E9%83%A8%E7%BD%B2%E6%AD%A5%E9%AA%A4">🛠️ 核心部署步骤</a>
+<ul>
+<li><a href="#%E5%87%86%E5%A4%87%E8%87%AA%E5%AE%9A%E4%B9%89%E8%81%8A%E5%A4%A9%E6%A8%A1%E6%9D%BF">准备自定义聊天模板</a></li>
+<li><a href="#docker-%E9%83%A8%E7%BD%B2%E5%91%BD%E4%BB%A4">Docker 部署命令</a></li>
+</ul>
+</li>
+<li><a href="#%E5%8F%82%E6%95%B0%E8%AF%A6%E8%A7%A3%E4%B8%8E%E4%BC%98%E5%8C%96%E7%AD%96%E7%95%A5">⚙️ 参数详解与优化策略</a>
+<ul>
+<li><a href="#docker-%E5%AE%B9%E5%99%A8%E9%85%8D%E7%BD%AE%E5%8F%82%E6%95%B0">Docker 容器配置参数</a></li>
+<li><a href="#vllm-%E5%BC%95%E6%93%8E%E6%A0%B8%E5%BF%83%E5%8F%82%E6%95%B0">vLLM 引擎核心参数</a></li>
+</ul>
+</li>
+<li><a href="#%E9%83%A8%E7%BD%B2%E9%AA%8C%E8%AF%81%E4%B8%8E%E6%B5%8B%E8%AF%95">🧪 部署验证与测试</a>
+<ul>
+<li><a href="#%E6%A3%80%E6%9F%A5-docker-%E6%97%A5%E5%BF%97">检查 Docker 日志</a></li>
+<li><a href="#%E4%BD%BF%E7%94%A8-python-%E8%84%9A%E6%9C%AC%E9%AA%8C%E8%AF%81-api">使用 Python 脚本验证 API</a>
+<ul>
+<li><a href="#%E7%8E%AF%E5%A2%83%E5%87%86%E5%A4%87%E4%BD%BF%E7%94%A8-uv-%E7%AE%A1%E7%90%86%E4%BE%9D%E8%B5%96">环境准备：使用 uv 管理依赖</a></li>
+<li><a href="#%E9%AA%8C%E8%AF%81%E8%84%9A%E6%9C%AC%E4%B8%8E%E9%A2%84%E6%9C%9F%E8%BE%93%E5%87%BA">验证脚本与预期输出</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a href="#%E9%A1%B9%E7%9B%AE%E6%BA%90%E7%A0%81">🔗 项目源码</a></li>
+<li><a href="#%E6%80%BB%E7%BB%93">🔚 总结</a></li>
+</ul>
+<h2 id="-概述"><!-- raw HTML omitted --><!-- raw HTML omitted -->📋 概述</h2>
+<p>随着大语言模型 (LLM) 的飞速发展，如何在有限的硬件资源下高效部署这些庞然大物，成为了业界关注的焦点。本文将聚焦于阿里巴巴通义千问团队最新推出的 <code>Qwen3-32B-AWQ</code> 模型，详细阐述如何利用 vLLM 这一高性能推理引擎，在多 GPU 环境下实现其高效、稳定的部署。我们将覆盖从环境准备、模型特性解析、部署命令调优，到最终的功能验证与 API 测试的全过程，特别关注 32K 长上下文处理、AWQ (Activation-aware Weight Quantization) 量化模型的特性，以及如何通过自定义聊天模板禁用模型的“思考模式” (即 <code>&lt;think&gt;...&lt;/think&gt;</code> 标签的输出)。</p>
+<p>本文旨在为希望在生产环境中部署 Qwen3 系列模型的工程师提供一份详尽的实践指南和优化参考。项目完整代码已开源，欢迎交流：<a href="https://github.com/jackypanster/deploy-qwen3-32b-awq">https://github.com/jackypanster/deploy-qwen3-32b-awq</a></p>
+<h2 id="-系统与环境要求"><!-- raw HTML omitted --><!-- raw HTML omitted -->🖥️ 系统与环境要求</h2>
+<h3 id="硬件配置"><!-- raw HTML omitted --><!-- raw HTML omitted -->硬件配置</h3>
+<ul>
+<li><strong>GPU</strong>: 4块 NVIDIA GPU (每块至少 22GB VRAM，总计约 88GB，推荐 Ampere 架构及以上，但本项目在 Volta/Turing 架构验证通过)</li>
+<li><strong>系统内存</strong>: 建议 512GB 及以上</li>
+<li><strong>存储</strong>: 建议 2TB 高速 SSD (模型文件约 60-70GB，加上 Docker 镜像和日志等)</li>
+<li><strong>CPU</strong>: 建议 56 核及以上 (用于数据预处理、Tokenizer 池等)</li>
+</ul>
+<h3 id="软件环境"><!-- raw HTML omitted --><!-- raw HTML omitted -->软件环境</h3>
+<ul>
+<li><strong>操作系统</strong>: Ubuntu 24.04 (或其它兼容的 Linux 发行版)</li>
+<li><strong>NVIDIA 驱动</strong>: 570.153.02 (或更高版本，需与 CUDA 12.8 兼容)</li>
+<li><strong>CUDA 版本</strong>: 12.8 (vLLM 依赖)</li>
+<li><strong>Docker</strong>: 最新稳定版，并已安装 NVIDIA Container Toolkit</li>
+<li><strong>vLLM Docker 镜像</strong>: <code>vllm/vllm-openai:v0.8.5</code> (或项目验证时使用的最新兼容版本)</li>
+</ul>
+<h2 id="-模型与部署架构解析"><!-- raw HTML omitted --><!-- raw HTML omitted -->🧠 模型与部署架构解析</h2>
+<h3 id="qwen3-32b-awq-模型特性"><!-- raw HTML omitted --><!-- raw HTML omitted -->Qwen3-32B-AWQ 模型特性</h3>
+<p><code>Qwen3-32B-AWQ</code> 是 Qwen3 系列中的 320 亿参数规模的模型，并采用了 AWQ 量化技术。</p>
+<ul>
+<li><strong>32B 参数</strong>: 在性能和资源消耗之间取得了较好的平衡。</li>
+<li><strong>AWQ 量化</strong>: Activation-aware Weight Quantization 是一种先进的量化技术，它能够在显著降低模型显存占用和加速推理的同时，最大限度地保持模型精度。相比于传统的 FP16/BF16 推理，AWQ 模型通常能以 INT4/INT8 混合精度运行，对硬件要求更低。</li>
+<li><strong>32K 上下文长度</strong>: 原生支持高达 32,768 个 token 的上下文长度，使其能够处理更复杂的长文本任务。</li>
+<li><strong>禁用思考模式</strong>: 对于某些应用场景，我们不希望模型输出中间的思考过程 (如 Qwen 系列特有的 <code>&lt;think&gt;...&lt;/think&gt;</code> 标签)。本项目通过自定义 Jinja 聊天模板在服务端强制禁用了此功能。</li>
+</ul>
+<h3 id="vllm为何选择它"><!-- raw HTML omitted --><!-- raw HTML omitted -->vLLM：为何选择它？</h3>
+<p>vLLM 是一个专为 LLM 推理设计的高性能引擎，其核心优势包括：</p>
+<ul>
+<li><strong>PagedAttention</strong>: 一种新颖的注意力算法，有效管理 KV 缓存，显著减少内存浪费和碎片，从而支持更长的序列和更大的批处理大小。</li>
+<li><strong>连续批处理 (Continuous Batching)</strong>: 请求无需等待批处理中的所有序列完成，可以动态插入新的请求，大幅提高 GPU 利用率和吞吐量。</li>
+<li><strong>张量并行</strong>: 自动且高效地将模型权重和计算任务分布到多个 GPU 上，简化了多 GPU 部署的复杂性。</li>
+<li><strong>OpenAI 兼容 API</strong>: 提供与 OpenAI API 一致的接口，使得现有应用可以无缝迁移。</li>
+<li><strong>广泛的模型支持和社区活跃</strong>: 支持包括 Qwen 在内的众多主流模型，并且社区活跃，迭代迅速。</li>
+</ul>
+<h3 id="关键需求禁用思考模式-enable_thinkingfalse"><!-- raw HTML omitted --><!-- raw HTML omitted -->关键需求：禁用思考模式 (enable_thinking=False)</h3>
+<p>Qwen 模型在某些情况下会输出包含 <code>&lt;think&gt;...&lt;/think&gt;</code> 标签的中间思考过程。在我们的应用场景中，这并非期望行为。为了确保 API 输出的纯净性，我们采用了自定义 Jinja 聊天模板的方式。该模板在服务端处理用户输入时，不会引导模型进入“思考”流程。相比于在客户端每次请求时传递 <code>enable_thinking=False</code> 参数，服务端模板的方式更为彻底和统一。</p>
+<h2 id="-核心部署步骤"><!-- raw HTML omitted --><!-- raw HTML omitted -->🛠️ 核心部署步骤</h2>
+<h3 id="准备自定义聊天模板"><!-- raw HTML omitted --><!-- raw HTML omitted -->准备自定义聊天模板</h3>
+<p>在项目根目录下创建 <code>qwen3_nonthinking.jinja</code> 文件，内容如下：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-jinja" data-lang="jinja"><span style="display:flex;"><span><span style="color:#75715e">{%</span> <span style="color:#66d9ef">for</span> message <span style="color:#66d9ef">in</span> messages <span style="color:#75715e">%}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">{%</span> <span style="color:#66d9ef">if</span> message<span style="color:#f92672">[</span><span style="color:#e6db74">&#39;role&#39;</span><span style="color:#f92672">]</span> <span style="color:#f92672">==</span> <span style="color:#e6db74">&#39;system&#39;</span> <span style="color:#75715e">%}</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">{{</span><span style="color:#e6db74">&#39;&lt;|im_start|&gt;system
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">&#39;</span> <span style="color:#f92672">+</span> message<span style="color:#f92672">[</span><span style="color:#e6db74">&#39;content&#39;</span><span style="color:#f92672">]</span> <span style="color:#f92672">+</span> <span style="color:#e6db74">&#39;&lt;|im_end|&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">&#39;</span><span style="color:#75715e">}}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">{%</span> <span style="color:#66d9ef">elif</span> message<span style="color:#f92672">[</span><span style="color:#e6db74">&#39;role&#39;</span><span style="color:#f92672">]</span> <span style="color:#f92672">==</span> <span style="color:#e6db74">&#39;user&#39;</span> <span style="color:#75715e">%}</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">{{</span><span style="color:#e6db74">&#39;&lt;|im_start|&gt;user
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">&#39;</span> <span style="color:#f92672">+</span> message<span style="color:#f92672">[</span><span style="color:#e6db74">&#39;content&#39;</span><span style="color:#f92672">]</span> <span style="color:#f92672">+</span> <span style="color:#e6db74">&#39;&lt;|im_end|&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">&#39;</span><span style="color:#75715e">}}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">{%</span> <span style="color:#66d9ef">elif</span> message<span style="color:#f92672">[</span><span style="color:#e6db74">&#39;role&#39;</span><span style="color:#f92672">]</span> <span style="color:#f92672">==</span> <span style="color:#e6db74">&#39;assistant&#39;</span> <span style="color:#75715e">%}</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">{{</span><span style="color:#e6db74">&#39;&lt;|im_start|&gt;assistant
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">&#39;</span> <span style="color:#f92672">+</span> message<span style="color:#f92672">[</span><span style="color:#e6db74">&#39;content&#39;</span><span style="color:#f92672">]</span> <span style="color:#f92672">+</span> <span style="color:#e6db74">&#39;&lt;|im_end|&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">&#39;</span><span style="color:#75715e">}}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">{%</span> <span style="color:#66d9ef">endif</span> <span style="color:#75715e">%}</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">{%</span> <span style="color:#66d9ef">endfor</span> <span style="color:#75715e">%}</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">{%</span> <span style="color:#66d9ef">if</span> add_generation_prompt <span style="color:#75715e">%}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">{{</span><span style="color:#e6db74">&#39;&lt;|im_start|&gt;assistant
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">&#39;</span><span style="color:#75715e">}}</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">{%</span> <span style="color:#66d9ef">endif</span> <span style="color:#75715e">%}</span>
+</span></span></code></pre></div><p>此模板移除了可能触发思考模式的特殊指令。</p>
+<h3 id="docker-部署命令"><!-- raw HTML omitted --><!-- raw HTML omitted -->Docker 部署命令</h3>
+<p>假设模型文件已下载到宿主机的 <code>/home/llm/model/qwen/Qwen3-32B-AWQ</code> 目录，从项目工作区根目录执行以下命令：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>docker run -d <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --runtime<span style="color:#f92672">=</span>nvidia <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --gpus<span style="color:#f92672">=</span>all <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --name coder <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  -v /home/llm/model/qwen/Qwen3-32B-AWQ:/model/Qwen3-32B-AWQ <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  -v <span style="color:#66d9ef">$(</span>pwd<span style="color:#66d9ef">)</span>/qwen3_nonthinking.jinja:/app/qwen3_nonthinking.jinja <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  -p 8000:8000 <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --cpuset-cpus 0-55 <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --ulimit memlock<span style="color:#f92672">=</span>-1 <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --ulimit stack<span style="color:#f92672">=</span><span style="color:#ae81ff">67108864</span> <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --restart always <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --ipc<span style="color:#f92672">=</span>host <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  vllm/vllm-openai:v0.8.5 <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --model /model/Qwen3-32B-AWQ <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --served-model-name coder <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --tensor-parallel-size <span style="color:#ae81ff">4</span> <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --dtype half <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --quantization awq <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --max-model-len <span style="color:#ae81ff">32768</span> <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --max-num-batched-tokens <span style="color:#ae81ff">4096</span> <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --gpu-memory-utilization 0.93 <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --block-size <span style="color:#ae81ff">32</span> <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --enable-chunked-prefill <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --swap-space <span style="color:#ae81ff">16</span> <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --tokenizer-pool-size <span style="color:#ae81ff">56</span> <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --disable-custom-all-reduce <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --chat-template /app/qwen3_nonthinking.jinja
+</span></span></code></pre></div><h2 id="-参数详解与优化策略"><!-- raw HTML omitted --><!-- raw HTML omitted -->⚙️ 参数详解与优化策略</h2>
+<h3 id="docker-容器配置参数"><!-- raw HTML omitted --><!-- raw HTML omitted -->Docker 容器配置参数</h3>
+<ul>
+<li><code>-d</code>: 后台运行容器。</li>
+<li><code>--runtime=nvidia --gpus=all</code>: 使用 NVIDIA runtime 并分配所有 GPU。</li>
+<li><code>--name coder</code>: 为容器命名，方便管理。</li>
+<li><code>-v /home/llm/model/qwen/Qwen3-32B-AWQ:/model/Qwen3-32B-AWQ</code>: 挂载本地模型目录到容器内。</li>
+<li><code>-v $(pwd)/qwen3_nonthinking.jinja:/app/qwen3_nonthinking.jinja</code>: 挂载自定义聊天模板。</li>
+<li><code>-p 8000:8000</code>: 映射端口。</li>
+<li><code>--cpuset-cpus 0-55</code>: 绑定 CPU核心，避免资源争抢。</li>
+<li><code>--ulimit memlock=-1 --ulimit stack=67108864</code>: 解除内存锁定限制，设置较大堆栈空间，对性能和稳定性有益。</li>
+<li><code>--restart always</code>: 容器异常退出时自动重启。</li>
+<li><code>--ipc=host</code>: 使用宿主机 IPC 命名空间，对 NCCL 通信（多GPU协同）至关重要，能显著提高性能。</li>
+</ul>
+<h3 id="vllm-引擎核心参数"><!-- raw HTML omitted --><!-- raw HTML omitted -->vLLM 引擎核心参数</h3>
+<ul>
+<li><code>--model /model/Qwen3-32B-AWQ</code>: 指定容器内模型的路径。</li>
+<li><code>--served-model-name coder</code>: API 服务时使用的模型名称。</li>
+<li><code>--tensor-parallel-size 4</code>: 设置张量并行数为 4，即使用 4 块 GPU 协同推理。根据模型大小和 GPU 显存调整。</li>
+<li><code>--dtype half</code>: AWQ 模型通常以半精度 (FP16) 加载权重以获得最佳性能和显存平衡。尽管 AWQ 内部可能使用更低精度，但 vLLM 加载时通常指定 <code>half</code> 或 <code>auto</code>。</li>
+<li><code>--quantization awq</code>: 明确告知 vLLM 模型是 AWQ 量化类型。</li>
+<li><code>--max-model-len 32768</code>: 设置模型能处理的最大序列长度，与 Qwen3-32B 的能力匹配。</li>
+<li><code>--max-num-batched-tokens 4096</code>: 单个批次中处理的最大 token 数量。此值影响并发能力和显存占用，需根据实际负载调整。</li>
+<li><code>--gpu-memory-utilization 0.93</code>: 设置 GPU 显存使用率。保留一部分（这里是 7%）是为了应对突发显存需求和避免 OOM。对于 AWQ 模型，由于 KV 缓存依然是 FP16，这部分显存占用不可忽视。</li>
+<li><code>--block-size 32</code>: PagedAttention 中 KV 缓存块的大小。通常 16 或 32 是较优选择。</li>
+<li><code>--enable-chunked-prefill</code>: 对于长序列（如 32K 上下文），启用分块预填充可以有效降低峰值显存，提高长序列处理的稳定性。</li>
+<li><code>--swap-space 16</code>: 分配 16GB 的 CPU RAM 作为 GPU KV 缓存的交换空间。当 GPU 显存不足以容纳所有活跃请求的 KV 缓存时，vLLM 会将部分冷数据交换到 CPU RAM。</li>
+<li><code>--tokenizer-pool-size 56</code>: 设置 Tokenizer 工作池的大小，建议与 CPU 核心数接近，以充分利用 CPU 并行处理能力进行文本编码解码。</li>
+<li><code>--disable-custom-all-reduce</code>: 在某些多于 2 个纯 PCIe 连接的 GPU 配置中，vLLM 的自定义 all-reduce 内核可能存在兼容性或性能问题。禁用它可以回退到 NCCL 默认实现，通常更稳定。</li>
+<li><code>--chat-template /app/qwen3_nonthinking.jinja</code>: 指定使用我们自定义的聊天模板文件。</li>
+</ul>
+<h2 id="-部署验证与测试"><!-- raw HTML omitted --><!-- raw HTML omitted -->🧪 部署验证与测试</h2>
+<h3 id="检查-docker-日志"><!-- raw HTML omitted --><!-- raw HTML omitted -->检查 Docker 日志</h3>
+<p>部署启动后，首先通过 <code>docker logs -f coder</code> 查看 vLLM 服务启动日志。关键信息包括：</p>
+<ul>
+<li>GPU 检测和显存分配情况。</li>
+<li>模型分片加载情况。</li>
+<li>PagedAttention KV 缓存块计算和可用数量。</li>
+<li>API 服务启动成功，监听 <code>0.0.0.0:8000</code>。</li>
+</ul>
+<h3 id="使用-python-脚本验证-api"><!-- raw HTML omitted --><!-- raw HTML omitted -->使用 Python 脚本验证 API</h3>
+<p>为了确保模型正常响应并且自定义聊天模板生效（不输出 <code>&lt;think&gt;</code> 标签），我们编写一个简单的 Python 脚本进行测试。</p>
+<h4 id="环境准备使用-uv-管理依赖"><!-- raw HTML omitted --><!-- raw HTML omitted -->环境准备：使用 uv 管理依赖</h4>
+<p>我们推荐使用 <code>uv</code> 这一新兴的快速 Python 包管理工具来创建虚拟环境和安装依赖。</p>
+<ol>
+<li><strong>创建虚拟环境</strong>: 在项目根目录运行 <code>uv venv</code>。这将创建一个名为 <code>.venv</code> 的虚拟环境。</li>
+<li><strong>安装 <code>openai</code> 包</strong>: 运行 <code>uv pip install openai</code>。</li>
+</ol>
+<h4 id="验证脚本与预期输出"><!-- raw HTML omitted --><!-- raw HTML omitted -->验证脚本与预期输出</h4>
+<p>在项目根目录创建 <code>verify_llm.py</code>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-python" data-lang="python"><span style="display:flex;"><span><span style="color:#f92672">import</span> openai
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 根据实际vLLM服务器IP和端口配置</span>
+</span></span><span style="display:flex;"><span>SERVER_IP <span style="color:#f92672">=</span> <span style="color:#e6db74">&#34;10.49.121.127&#34;</span> <span style="color:#75715e"># 或者 localhost</span>
+</span></span><span style="display:flex;"><span>SERVER_PORT <span style="color:#f92672">=</span> <span style="color:#ae81ff">8000</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>client <span style="color:#f92672">=</span> openai<span style="color:#f92672">.</span>OpenAI(
+</span></span><span style="display:flex;"><span>    base_url<span style="color:#f92672">=</span><span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;http://</span><span style="color:#e6db74">{</span>SERVER_IP<span style="color:#e6db74">}</span><span style="color:#e6db74">:</span><span style="color:#e6db74">{</span>SERVER_PORT<span style="color:#e6db74">}</span><span style="color:#e6db74">/v1&#34;</span>,
+</span></span><span style="display:flex;"><span>    api_key<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;dummy-key&#34;</span>  <span style="color:#75715e"># vLLM 默认不需要 API key</span>
+</span></span><span style="display:flex;"><span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>messages <span style="color:#f92672">=</span> [
+</span></span><span style="display:flex;"><span>    {<span style="color:#e6db74">&#34;role&#34;</span>: <span style="color:#e6db74">&#34;system&#34;</span>, <span style="color:#e6db74">&#34;content&#34;</span>: <span style="color:#e6db74">&#34;You are a helpful assistant.&#34;</span>},
+</span></span><span style="display:flex;"><span>    {<span style="color:#e6db74">&#34;role&#34;</span>: <span style="color:#e6db74">&#34;user&#34;</span>, <span style="color:#e6db74">&#34;content&#34;</span>: <span style="color:#e6db74">&#34;你好，请介绍一下你自己。&#34;</span>}
+</span></span><span style="display:flex;"><span>]
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>print(<span style="color:#e6db74">&#34;Sending request to the LLM...</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">&#34;</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">try</span>:
+</span></span><span style="display:flex;"><span>    completion <span style="color:#f92672">=</span> client<span style="color:#f92672">.</span>chat<span style="color:#f92672">.</span>completions<span style="color:#f92672">.</span>create(
+</span></span><span style="display:flex;"><span>        model<span style="color:#f92672">=</span><span style="color:#e6db74">&#34;coder&#34;</span>,  <span style="color:#75715e"># 对应 --served-model-name</span>
+</span></span><span style="display:flex;"><span>        messages<span style="color:#f92672">=</span>messages,
+</span></span><span style="display:flex;"><span>        temperature<span style="color:#f92672">=</span><span style="color:#ae81ff">0.7</span>,
+</span></span><span style="display:flex;"><span>        max_tokens<span style="color:#f92672">=</span><span style="color:#ae81ff">150</span>
+</span></span><span style="display:flex;"><span>    )
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    response_content <span style="color:#f92672">=</span> completion<span style="color:#f92672">.</span>choices[<span style="color:#ae81ff">0</span>]<span style="color:#f92672">.</span>message<span style="color:#f92672">.</span>content
+</span></span><span style="display:flex;"><span>    print(<span style="color:#e6db74">&#34;LLM Response:&#34;</span>)
+</span></span><span style="display:flex;"><span>    print(response_content)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#e6db74">&#34;&lt;think&gt;&#34;</span> <span style="color:#f92672">in</span> response_content <span style="color:#f92672">or</span> <span style="color:#e6db74">&#34;&lt;/think&gt;&#34;</span> <span style="color:#f92672">in</span> response_content:
+</span></span><span style="display:flex;"><span>        print(<span style="color:#e6db74">&#34;</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">VERIFICATION FAILED: &#39;&lt;think&gt;&#39; tags found in the response.&#34;</span>)
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">else</span>:
+</span></span><span style="display:flex;"><span>        print(<span style="color:#e6db74">&#34;</span><span style="color:#ae81ff">\n</span><span style="color:#e6db74">VERIFICATION SUCCESSFUL: No &#39;&lt;think&gt;&#39; tags found. &#39;enable_thinking=False&#39; is working as expected.&#34;</span>)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">except</span> openai<span style="color:#f92672">.</span>APIConnectionError <span style="color:#66d9ef">as</span> e:
+</span></span><span style="display:flex;"><span>    print(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;Failed to connect to the server: </span><span style="color:#e6db74">{</span>e<span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span>)
+</span></span><span style="display:flex;"><span>    print(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;Please ensure the vLLM server is running and accessible at http://</span><span style="color:#e6db74">{</span>SERVER_IP<span style="color:#e6db74">}</span><span style="color:#e6db74">:</span><span style="color:#e6db74">{</span>SERVER_PORT<span style="color:#e6db74">}</span><span style="color:#e6db74">.&#34;</span>)
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">except</span> <span style="color:#a6e22e">Exception</span> <span style="color:#66d9ef">as</span> e:
+</span></span><span style="display:flex;"><span>    print(<span style="color:#e6db74">f</span><span style="color:#e6db74">&#34;An error occurred: </span><span style="color:#e6db74">{</span>e<span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;</span>)
+</span></span></code></pre></div><p>使用 <code>uv run python3 verify_llm.py</code> 运行此脚本。预期输出应包含模型的自我介绍，并且明确提示 <code>VERIFICATION SUCCESSFUL: No '&lt;think&gt;' tags found</code>。</p>
+<h2 id="-项目源码"><!-- raw HTML omitted --><!-- raw HTML omitted -->🔗 项目源码</h2>
+<p>本项目的所有配置文件、脚本和详细文档均已在 GitHub 开源：
+<a href="https://github.com/jackypanster/deploy-qwen3-32b-awq">https://github.com/jackypanster/deploy-qwen3-32b-awq</a></p>
+<h2 id="-总结"><!-- raw HTML omitted --><!-- raw HTML omitted -->🔚 总结</h2>
+<p>通过本文的详细步骤和参数解析，我们成功地在多 GPU 环境下使用 vLLM 高效部署了 Qwen3-32B-AWQ 模型。关键的优化点包括针对 AWQ 模型的参数配置、32K 长上下文处理、以及通过自定义聊天模板实现“无思考模式”输出。这套部署方案兼顾了性能、资源利用率和特定业务需求，为基于 Qwen3 大模型的应用开发提供了坚实的基础。</p>
+]]></content:encoded></item><item><title>DeepSeek-R1-0528-Qwen3-8B部署优化实践</title><link>https://jackypanster.github.io/ai-stream/posts/deploy-deepseek-r1-qwen3-8b-optimization/</link><pubDate>Sat, 07 Jun 2025 17:50:00 +0800</pubDate><guid>https://jackypanster.github.io/ai-stream/posts/deploy-deepseek-r1-qwen3-8b-optimization/</guid><description>&lt;h1 id="deepseek-r1-0528-qwen3-8b部署优化实践性能与稳定性的平衡艺术">DeepSeek-R1-0528-Qwen3-8B部署优化实践：性能与稳定性的平衡艺术&lt;/h1>
 &lt;p>在AI大模型部署领域，本文详细记录对DeepSeek-R1-0528-Qwen3-8B模型使用vLLM进行部署优化的全过程，重点关注上下文窗口长度与硬件资源利用的平衡调优。&lt;/p>
 &lt;h2 id="环境与基础设施">环境与基础设施&lt;/h2>
 &lt;p>我们的部署环境具备以下配置：&lt;/p>
