@@ -1,4 +1,163 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>AI 避难所</title><link>https://jackypanster.github.io/ai-stream/</link><description>Recent content on AI 避难所</description><generator>Hugo -- 0.147.8</generator><language>en-us</language><lastBuildDate>Tue, 10 Jun 2025 20:45:00 +0800</lastBuildDate><atom:link href="https://jackypanster.github.io/ai-stream/index.xml" rel="self" type="application/rss+xml"/><item><title>Qwen3-32B-AWQ 高效部署：基于 vLLM 的深度实践与优化</title><link>https://jackypanster.github.io/ai-stream/posts/deploy-qwen3-32b-awq-vllm-guide/</link><pubDate>Tue, 10 Jun 2025 20:45:00 +0800</pubDate><guid>https://jackypanster.github.io/ai-stream/posts/deploy-qwen3-32b-awq-vllm-guide/</guid><description>本文详细介绍了如何使用 vLLM 高效部署 Qwen3-32B-AWQ 量化模型，实现 32K 上下文窗口、OpenAI 兼容 API，并禁用思考模式。通过对 Docker 及 vLLM 参数的精细调优，最大化模型在多 GPU 环境下的推理性能。</description><content:encoded><![CDATA[<ul>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>AI 避难所</title><link>https://jackypanster.github.io/ai-stream/</link><description>Recent content on AI 避难所</description><generator>Hugo -- 0.147.8</generator><language>en-us</language><lastBuildDate>Tue, 17 Jun 2025 15:26:29 +0800</lastBuildDate><atom:link href="https://jackypanster.github.io/ai-stream/index.xml" rel="self" type="application/rss+xml"/><item><title>优化CI/CD管道：实现Docker镜像白名单继承机制</title><link>https://jackypanster.github.io/ai-stream/posts/check-docker-image-size/</link><pubDate>Tue, 17 Jun 2025 15:26:29 +0800</pubDate><guid>https://jackypanster.github.io/ai-stream/posts/check-docker-image-size/</guid><description>本文详细介绍如何在Jenkins共享库中优化Docker镜像大小检测，实现基础镜像白名单继承机制，解决构建镜像与白名单不匹配问题。</description><content:encoded><![CDATA[<h2 id="-概述">📋 概述</h2>
+<p>在CI/CD流程中，Docker镜像大小管理至关重要。本文详细介绍了一个核心优化：<strong>Docker镜像白名单继承机制</strong>。这一机制解决了基于白名单中基础镜像构建的业务镜像无法自动获得白名单豁免的问题，大幅简化了白名单配置管理，提升了团队开发效率。</p>
+<h2 id="-背景与问题分析">🧩 背景与问题分析</h2>
+<h3 id="问题背景">问题背景</h3>
+<p>在Jenkins CI/CD管道中，为控制Docker镜像体积，我们限制镜像大小不超过2GB。然而，AI/ML领域的基础镜像（如PyTorch、TensorFlow）天然超过此限制，因此实现了白名单机制允许特定镜像跳过大小检查。</p>
+<h3 id="核心难题">核心难题</h3>
+<p><strong>白名单无法覆盖派生镜像</strong>：当工程师基于白名单中的基础镜像（如<code>pytorch/pytorch:1.9.0</code>）构建自定义镜像（如<code>company/ml-model:v1</code>）时，由于新镜像名称不在白名单中，导致CI流程因大小限制而失败。这迫使团队频繁更新白名单，维护成本高昂。</p>
+<h3 id="现有流程">现有流程</h3>
+<pre tabindex="0"><code>检查基础镜像大小 → 检查基础镜像是否在白名单中 → 构建新镜像 → 
+检查构建镜像大小 → 检查构建镜像是否在白名单中 → 流水线继续/失败
+</code></pre><h2 id="-方案设计与原理">🔍 方案设计与原理</h2>
+<h3 id="白名单继承思路">白名单继承思路</h3>
+<p>设计一种&quot;继承机制&quot;，使基于白名单中基础镜像构建的镜像能够自动获得白名单豁免权限，即使新镜像名称不在白名单中。</p>
+<h3 id="优化核心原理">优化核心原理</h3>
+<ol>
+<li>在检测基础镜像时，记录其白名单状态</li>
+<li>在检测构建镜像时，考虑两种白名单条件：
+<ul>
+<li>镜像名称是否在白名单中（原始机制）</li>
+<li>基础镜像是否在白名单中（新增继承机制）</li>
+</ul>
+</li>
+<li>如果满足任一条件，则允许镜像通过大小检查</li>
+</ol>
+<pre tabindex="0"><code>基础镜像白名单状态 → 传递给构建镜像检测 → 
+构建镜像检测同时考虑自身白名单状态和基础镜像白名单状态
+</code></pre><h2 id="-核心实现步骤">🛠️ 核心实现步骤</h2>
+<h3 id="改进基础镜像检测函数">改进基础镜像检测函数</h3>
+<p>修改<code>checkBaseImageSize</code>函数，增加返回基础镜像白名单状态：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-groovy" data-lang="groovy"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">checkBaseImageSize</span><span style="color:#f92672">(</span>String dockerFilePath<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">def</span> baseImageName <span style="color:#f92672">=</span> sh<span style="color:#f92672">(</span>script: <span style="color:#e6db74">&#34;cat ${dockerFilePath} | grep FROM | head -n 1 | awk &#39;{print \$2}&#39;&#34;</span><span style="color:#f92672">,</span> returnStdout: <span style="color:#66d9ef">true</span><span style="color:#f92672">).</span><span style="color:#a6e22e">trim</span><span style="color:#f92672">()</span>
+</span></span><span style="display:flex;"><span>    echo <span style="color:#e6db74">&#34;基础镜像: ${baseImageName}&#34;</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 获取镜像大小
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">def</span> baseImageSize <span style="color:#f92672">=</span> sh<span style="color:#f92672">(</span>script: <span style="color:#e6db74">&#34;docker images --format &#39;{{.Size}}&#39; ${baseImageName} | head -n 1&#34;</span><span style="color:#f92672">,</span> returnStdout: <span style="color:#66d9ef">true</span><span style="color:#f92672">).</span><span style="color:#a6e22e">trim</span><span style="color:#f92672">()</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">def</span> sizeMB <span style="color:#f92672">=</span> baseImageSize<span style="color:#f92672">.</span><span style="color:#a6e22e">contains</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#39;MB&#39;</span><span style="color:#f92672">)</span> <span style="color:#f92672">?</span> baseImageSize<span style="color:#f92672">.</span><span style="color:#a6e22e">replace</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#39;MB&#39;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#39;&#39;</span><span style="color:#f92672">).</span><span style="color:#a6e22e">trim</span><span style="color:#f92672">().</span><span style="color:#a6e22e">toFloat</span><span style="color:#f92672">()</span> <span style="color:#f92672">:</span> 
+</span></span><span style="display:flex;"><span>                <span style="color:#f92672">(</span>baseImageSize<span style="color:#f92672">.</span><span style="color:#a6e22e">contains</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#39;GB&#39;</span><span style="color:#f92672">)</span> <span style="color:#f92672">?</span> baseImageSize<span style="color:#f92672">.</span><span style="color:#a6e22e">replace</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#39;GB&#39;</span><span style="color:#f92672">,</span> <span style="color:#e6db74">&#39;&#39;</span><span style="color:#f92672">).</span><span style="color:#a6e22e">trim</span><span style="color:#f92672">().</span><span style="color:#a6e22e">toFloat</span><span style="color:#f92672">()</span> <span style="color:#f92672">*</span> <span style="color:#ae81ff">1024</span> <span style="color:#f92672">:</span> <span style="color:#ae81ff">0</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">def</span> warnSizeMB <span style="color:#f92672">=</span> env<span style="color:#f92672">.</span><span style="color:#a6e22e">BASE_IMAGE_WARN_SIZE_MB</span> <span style="color:#f92672">?</span> env<span style="color:#f92672">.</span><span style="color:#a6e22e">BASE_IMAGE_WARN_SIZE_MB</span><span style="color:#f92672">.</span><span style="color:#a6e22e">toInteger</span><span style="color:#f92672">()</span> <span style="color:#f92672">:</span> <span style="color:#ae81ff">2048</span>
+</span></span><span style="display:flex;"><span>    echo <span style="color:#e6db74">&#34;基础镜像大小: ${sizeMB}MB, 警告阈值: ${warnSizeMB}MB&#34;</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 关键点：检查基础镜像是否在白名单中
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">boolean</span> inWhitelist <span style="color:#f92672">=</span> isImageInWhitelist<span style="color:#f92672">(</span>baseImageName<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 大小检查逻辑
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>sizeMB <span style="color:#f92672">&gt;</span> warnSizeMB<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(!</span>inWhitelist<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">throw</span> <span style="color:#a6e22e">newReasonException</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;基础镜像 ${baseImageName} 大小 ${sizeMB}MB 超过了警告阈值 ${warnSizeMB}MB&#34;</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            echoWarning<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;基础镜像 ${baseImageName} 大小为 ${sizeMB}MB，超过允许的 ${warnSizeMB}MB，但在白名单中，允许继续&#34;</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 返回包含白名单状态的信息
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">return</span> <span style="color:#f92672">[</span>baseImage: baseImageName<span style="color:#f92672">,</span> size: sizeMB<span style="color:#f92672">,</span> inWhitelist: inWhitelist<span style="color:#f92672">]</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h3 id="优化构建镜像检测函数">优化构建镜像检测函数</h3>
+<p>修改<code>checkImageSize</code>函数，实现白名单继承机制：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-groovy" data-lang="groovy"><span style="display:flex;"><span><span style="color:#66d9ef">def</span> <span style="color:#a6e22e">checkImageSize</span><span style="color:#f92672">(</span><span style="color:#66d9ef">def</span> dockerImage<span style="color:#f92672">,</span> <span style="color:#66d9ef">def</span> imageFile<span style="color:#f92672">,</span> <span style="color:#66d9ef">def</span> branch<span style="color:#f92672">,</span> <span style="color:#66d9ef">def</span> commit<span style="color:#f92672">,</span> <span style="color:#66d9ef">def</span> baseImageInfo <span style="color:#f92672">=</span> <span style="color:#66d9ef">null</span><span style="color:#f92672">){</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 获取镜像大小相关逻辑
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#75715e">// ...
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>imageSizeMB <span style="color:#f92672">&gt;</span> warnSizeMB<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 检查镜像自身是否在白名单中
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#66d9ef">boolean</span> inWhitelist <span style="color:#f92672">=</span> isImageInWhitelist<span style="color:#f92672">(</span>dockerImage<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// 核心逻辑：检查基础镜像是否在白名单中 - 继承机制
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#66d9ef">boolean</span> baseImageInWhitelist <span style="color:#f92672">=</span> baseImageInfo<span style="color:#f92672">?.</span><span style="color:#a6e22e">inWhitelist</span> <span style="color:#f92672">?:</span> <span style="color:#66d9ef">false</span>
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> <span style="color:#f92672">(!</span>inWhitelist <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">!</span>baseImageInWhitelist<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#75715e">// 两种条件都不满足，抛出异常
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            <span style="color:#66d9ef">throw</span> <span style="color:#a6e22e">newReasonException</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#34;镜像 ${dockerImage} 大小为 ${imageSizeMB}MB，超过了允许的 ${warnSizeMB}MB&#34;</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#75715e">// 根据豁免来源记录不同的警告日志
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            <span style="color:#66d9ef">if</span> <span style="color:#f92672">(</span>inWhitelist<span style="color:#f92672">)</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                echoWarning<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;构建镜像 ${dockerImage} 大小为 ${imageSizeMB}MB，超过允许的 ${warnSizeMB}MB，但镜像名称在白名单中，允许继续&#34;</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span> <span style="color:#66d9ef">else</span> <span style="color:#f92672">{</span>
+</span></span><span style="display:flex;"><span>                echoWarning<span style="color:#f92672">(</span><span style="color:#e6db74">&#34;构建镜像 ${dockerImage} 大小为 ${imageSizeMB}MB，超过允许的 ${warnSizeMB}MB，但基于白名单中的基础镜像，允许继续&#34;</span><span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>            <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 返回镜像信息
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">return</span> <span style="color:#f92672">[</span>name: dockerImage<span style="color:#f92672">,</span> size: imageSizeMB<span style="color:#f92672">]</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h3 id="配置白名单文件">配置白名单文件</h3>
+<p>创建了按类别组织的白名单配置文件<code>config/docker-whitelist.yml</code>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">whitelist</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e"># 深度学习框架</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">pytorch/pytorch           </span> <span style="color:#75715e"># PyTorch 官方镜像</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">pytorch/torchserve       </span> <span style="color:#75715e"># PyTorch 模型服务镜像</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">tensorflow/tensorflow    </span> <span style="color:#75715e"># TensorFlow 官方镜像</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">apache/mxnet             </span> <span style="color:#75715e"># Apache MXNet 深度学习框架</span>
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e"># GPU和CUDA镜像</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">nvidia/cuda               </span> <span style="color:#75715e"># NVIDIA CUDA 基础镜像</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">nvcr.io/nvidia            </span> <span style="color:#75715e"># NVIDIA GPU Cloud 镜像</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">nvidia/cudagl             </span> <span style="color:#75715e"># NVIDIA CUDA 与 OpenGL 支持</span>
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e"># 数据科学和分析工具</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">jupyter/datascience-notebook   </span> <span style="color:#75715e"># Jupyter 数据科学笔记本</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">continuumio/anaconda3          </span> <span style="color:#75715e"># Anaconda 数据科学平台</span>
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e"># 向量数据库和搜索</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">milvusdb/milvus             </span> <span style="color:#75715e"># Milvus 向量数据库</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">elasticsearch/elasticsearch </span> <span style="color:#75715e"># Elasticsearch 搜索引擎</span>
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e"># 更多分类...</span>
+</span></span></code></pre></div><h2 id="-配置详解与最佳实践">⚙️ 配置详解与最佳实践</h2>
+<h3 id="白名单配置文件结构">白名单配置文件结构</h3>
+<p>白名单配置采用YAML格式，按功能分类组织：</p>
+<ul>
+<li><strong>深度学习框架</strong>: 如PyTorch, TensorFlow, MXNet</li>
+<li><strong>GPU相关镜像</strong>: 如NVIDIA CUDA, cuDNN</li>
+<li><strong>预训练模型和NLP框架</strong>: 如Hugging Face Transformers</li>
+<li><strong>数据科学工具</strong>: 如Jupyter, Anaconda, Dask</li>
+<li><strong>分布式训练框架</strong>: 如Horovod, Ray, Spark</li>
+</ul>
+<h3 id="白名单匹配逻辑">白名单匹配逻辑</h3>
+<p>白名单使用部分匹配规则，一个镜像只要包含白名单中的任何一项，就被认为在白名单中：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-groovy" data-lang="groovy"><span style="display:flex;"><span><span style="color:#66d9ef">boolean</span> inWhitelist <span style="color:#f92672">=</span> whitelistConfig<span style="color:#f92672">.</span><span style="color:#a6e22e">whitelist</span><span style="color:#f92672">.</span><span style="color:#a6e22e">any</span> <span style="color:#f92672">{</span> whitelist <span style="color:#f92672">-&gt;</span>
+</span></span><span style="display:flex;"><span>    imageName<span style="color:#f92672">.</span><span style="color:#a6e22e">contains</span><span style="color:#f92672">(</span>whitelist<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><p>同时，支持通过环境变量动态扩展白名单：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-groovy" data-lang="groovy"><span style="display:flex;"><span>String extraWhitelistStr <span style="color:#f92672">=</span> env<span style="color:#f92672">.</span><span style="color:#a6e22e">DOCKER_IMAGE_WHITELIST</span> <span style="color:#f92672">?:</span> <span style="color:#e6db74">&#34;&#34;</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">def</span> extraWhitelist <span style="color:#f92672">=</span> extraWhitelistStr<span style="color:#f92672">.</span><span style="color:#a6e22e">split</span><span style="color:#f92672">(</span><span style="color:#e6db74">&#39;,&#39;</span><span style="color:#f92672">).</span><span style="color:#a6e22e">collect</span> <span style="color:#f92672">{</span> it<span style="color:#f92672">.</span><span style="color:#a6e22e">trim</span><span style="color:#f92672">()</span> <span style="color:#f92672">}.</span><span style="color:#a6e22e">findAll</span> <span style="color:#f92672">{</span> it <span style="color:#f92672">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">boolean</span> inEnvWhitelist <span style="color:#f92672">=</span> extraWhitelist<span style="color:#f92672">.</span><span style="color:#a6e22e">any</span> <span style="color:#f92672">{</span> whitelist <span style="color:#f92672">-&gt;</span>
+</span></span><span style="display:flex;"><span>    imageName<span style="color:#f92672">.</span><span style="color:#a6e22e">contains</span><span style="color:#f92672">(</span>whitelist<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">}</span>
+</span></span></code></pre></div><h3 id="最佳实践建议">最佳实践建议</h3>
+<ol>
+<li><strong>谨慎维护白名单</strong>：仅将确实无法优化体积的必要镜像添加到白名单</li>
+<li><strong>优先添加基础镜像</strong>：利用继承机制，只需添加常用基础镜像</li>
+<li><strong>定期审核白名单</strong>：确保白名单中的镜像仍然是必要的</li>
+<li><strong>使用优化镜像版本</strong>：优先选择slim版本，如<code>pytorch/pytorch:1.9.0-slim</code></li>
+<li><strong>记录白名单理由</strong>：在配置中注释清楚每个白名单项目的用途</li>
+</ol>
+<h2 id="-效果验证与总结">📊 效果验证与总结</h2>
+<h3 id="白名单管理优化">白名单管理优化</h3>
+<p>白名单条目从潜在的几百项减少到约30项核心基础镜像，大幅降低了维护成本。</p>
+<h3 id="部署流程优化">部署流程优化</h3>
+<p>工程师现在可以基于已批准的基础镜像自由构建业务镜像，而无需向DevOps团队请求修改白名单。</p>
+<h3 id="日志明确区分">日志明确区分</h3>
+<p>日志明确区分了两种白名单豁免情况：</p>
+<pre tabindex="0"><code>[WARNING] 构建镜像 company/ml-model:v1 大小为 5200MB，超过允许的 2048MB，但基于白名单中的基础镜像，允许继续
+</code></pre><pre tabindex="0"><code>[WARNING] 构建镜像 pytorch/my-model:1.0 大小为 3500MB，超过允许的 2048MB，但镜像名称在白名单中，允许继续
+</code></pre><h3 id="核心收益">核心收益</h3>
+<ol>
+<li><strong>简化配置管理</strong>：白名单配置更加精简和系统化</li>
+<li><strong>提升工程师体验</strong>：减少了流水线中断，增强开发体验</li>
+<li><strong>清晰审计轨迹</strong>：日志明确记录豁免原因，便于审计和管理</li>
+</ol>
+<h2 id="-源码与参考">🔗 源码与参考</h2>
+<ul>
+<li>完整代码提交: <a href="https://github.com/your-org/jenkins-lib/commit/83b16e69ba0d34">Github Commit</a></li>
+<li>Jenkins 共享库文档: <a href="https://www.jenkins.io/doc/book/pipeline/shared-libraries/">Jenkins Shared Libraries</a></li>
+<li>Docker 镜像优化建议: <a href="https://docs.docker.com/develop/develop-images/dockerfile_best-practices/">Docker Best Practices</a></li>
+<li>AI/ML Docker 镜像参考: <a href="https://www.datacamp.com/blog/docker-container-images-for-machine-learning-and-ai">Top AI/ML Docker Images</a></li>
+</ul>
+]]></content:encoded></item><item><title>Qwen3-32B-AWQ 高效部署：基于 vLLM 的深度实践与优化</title><link>https://jackypanster.github.io/ai-stream/posts/deploy-qwen3-32b-awq-vllm-guide/</link><pubDate>Tue, 10 Jun 2025 20:45:00 +0800</pubDate><guid>https://jackypanster.github.io/ai-stream/posts/deploy-qwen3-32b-awq-vllm-guide/</guid><description>本文详细介绍了如何使用 vLLM 高效部署 Qwen3-32B-AWQ 量化模型，实现 32K 上下文窗口、OpenAI 兼容 API，并禁用思考模式。通过对 Docker 及 vLLM 参数的精细调优，最大化模型在多 GPU 环境下的推理性能。</description><content:encoded><![CDATA[<ul>
 <li><a href="#%E6%A6%82%E8%BF%B0">📋 概述</a></li>
 <li><a href="#%E7%B3%BB%E7%BB%9F%E4%B8%8E%E7%8E%AF%E5%A2%83%E8%A6%81%E6%B1%82">🖥️ 系统与环境要求</a>
 <ul>
