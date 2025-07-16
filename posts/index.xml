@@ -1,4 +1,104 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>Posts on AI 避难所</title><link>https://jackypanster.github.io/ai-stream/posts/</link><description>Recent content in Posts on AI 避难所</description><generator>Hugo -- 0.148.1</generator><language>en-us</language><lastBuildDate>Wed, 16 Jul 2025 13:19:48 +0800</lastBuildDate><atom:link href="https://jackypanster.github.io/ai-stream/posts/index.xml" rel="self" type="application/rss+xml"/><item><title>Qwen3-32B-AWQ vLLM 多卡 2080 Ti 极限部署实战</title><link>https://jackypanster.github.io/ai-stream/posts/qwen3-32b-2080ti-vllm-deploy/</link><pubDate>Wed, 16 Jul 2025 13:19:48 +0800</pubDate><guid>https://jackypanster.github.io/ai-stream/posts/qwen3-32b-2080ti-vllm-deploy/</guid><description>&lt;blockquote>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>Posts on AI 避难所</title><link>https://jackypanster.github.io/ai-stream/posts/</link><description>Recent content in Posts on AI 避难所</description><generator>Hugo -- 0.148.1</generator><language>en-us</language><lastBuildDate>Wed, 16 Jul 2025 18:14:40 +0800</lastBuildDate><atom:link href="https://jackypanster.github.io/ai-stream/posts/index.xml" rel="self" type="application/rss+xml"/><item><title>Ubuntu 24.04 终极性能调优指南：从系统臃肿到内核定制</title><link>https://jackypanster.github.io/ai-stream/posts/ubuntu-24-04-performance-tuning-guide/</link><pubDate>Wed, 16 Jul 2025 18:14:40 +0800</pubDate><guid>https://jackypanster.github.io/ai-stream/posts/ubuntu-24-04-performance-tuning-guide/</guid><description>一份面向开发者的深度指南，记录了如何通过移除 Snap、更换 XanMod 内核、禁用 CPU 安全缓解等一系列硬核操作，将一台标准 Ubuntu 24.04 工作站打造成极致性能的开发机器。</description><content:encoded><![CDATA[<h2 id="第一章大扫除--根除-snap-生态">第一章：大扫除 —— 根除 Snap 生态</h2>
+<p><strong>背景分析</strong>：Snap 是 Canonical 推出的通用软件包格式，旨在简化跨发行版部署。其沙箱机制带来了安全优势，但也引入了显著的性能开销：首次启动缓慢、后台服务（<code>snapd</code>）持续占用资源、以及磁盘空间的大量消耗（每个应用都是一个独立的 loop device）。对于开发者来说，这些代价远超其带来的便利。</p>
+<p><strong>行动方案</strong>：我们的第一步，就是彻底、干净地移除整个 Snap 生态系统。</p>
+<ol>
+<li>
+<p><strong>识别并卸载所有已安装的 Snap 包</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 列出所有已安装的 snap 包</span>
+</span></span><span style="display:flex;"><span>snap list
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 逐一卸载，从 Firefox 开始</span>
+</span></span><span style="display:flex;"><span>sudo snap remove --purge firefox
+</span></span><span style="display:flex;"><span>sudo snap remove --purge snap-store
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># ...卸载其他所有 snap 包...</span>
+</span></span></code></pre></div></li>
+<li>
+<p><strong>停止并禁用 <code>snapd</code> 服务</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>sudo systemctl disable --now snapd.service snapd.socket snapd.seeded.service
+</span></span></code></pre></div></li>
+<li>
+<p><strong>彻底清除 <code>snapd</code> 及其残留文件</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>sudo apt autoremove --purge snapd -y
+</span></span><span style="display:flex;"><span>rm -rf ~/snap
+</span></span><span style="display:flex;"><span>sudo rm -rf /var/cache/snapd/
+</span></span></code></pre></div></li>
+</ol>
+<p><strong>关键问题：Firefox 的替代方案</strong></p>
+<p>移除 Snap 版 Firefox 后，我们需要一个原生的替代品。最佳选择是 Mozilla 官方提供的 PPA（Personal Package Archive）。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 添加 Mozilla 官方 PPA</span>
+</span></span><span style="display:flex;"><span>sudo add-apt-repository ppa:mozillateam/ppa
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 配置 PPA 优先级，确保系统优先选择 PPA 版本而非 Snap 版本</span>
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#39;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">Package: *
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">Pin: release o=LP-PPA-mozillateam
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">Pin-Priority: 1001
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">&#39;</span> | sudo tee /etc/apt/preferences.d/mozilla-firefox
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 安装原生 .deb 版 Firefox</span>
+</span></span><span style="display:flex;"><span>sudo apt update <span style="color:#f92672">&amp;&amp;</span> sudo apt install firefox -y
+</span></span></code></pre></div><p>至此，我们完成了第一项重大优化。系统变得更加轻盈，后台噪音显著减少。</p>
+<hr>
+<h2 id="第二章心脏移植--换装-xanmod-内核">第二章：心脏移植 —— 换装 XanMod 内核</h2>
+<p><strong>背景分析</strong>：Linux 内核是操作系统的核心，负责管理 CPU、内存和硬件。Ubuntu 的通用内核（Generic Kernel）为了稳定性和兼容性，在调度器等方面做了很多保守的权衡。而 <strong>XanMod 内核</strong> 是一个社区驱动的项目，专为桌面、多媒体和游戏等高响应性场景优化。它采用了更先进的进程调度器（如 Task Type Scheduler）、更低的延迟配置和最新的内核补丁，能显著提升系统的交互流畅度和吞吐量。</p>
+<p><strong>行动方案</strong>：为我们的系统更换一颗更强劲的“心脏”。</p>
+<ol>
+<li>
+<p><strong>添加 XanMod 的软件源</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>wget -qO - https://dl.xanmod.org/archive.key | sudo gpg --dearmor -o /usr/share/keyrings/xanmod-archive-keyring.gpg
+</span></span><span style="display:flex;"><span>echo <span style="color:#e6db74">&#39;deb [signed-by=/usr/share/keyrings/xanmod-archive-keyring.gpg] http://deb.xanmod.org releases main&#39;</span> | sudo tee /etc/apt/sources.list.d/xanmod-release.list
+</span></span></code></pre></div></li>
+<li>
+<p><strong>安装针对现代 CPU 优化的版本</strong>：
+XanMod 提供多个版本。对于现代 AMD 和 Intel CPU（2015年后），<code>x64v3</code> 版本是最佳选择，因为它利用了 AVX/AVX2 等新指令集。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>sudo apt update
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 安装 x64v3 版本的 LTS (长期支持) 内核</span>
+</span></span><span style="display:flex;"><span>sudo apt install linux-xanmod-lts-x64v3 -y
+</span></span></code></pre></div></li>
+<li>
+<p><strong>重启与验证</strong>：
+安装后，<strong>必须重启</strong>系统以加载新内核。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 重启电脑</span>
+</span></span><span style="display:flex;"><span>sudo reboot
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 重启后，验证内核版本</span>
+</span></span><span style="display:flex;"><span>uname -r
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 预期输出应包含 &#39;xanmod&#39;</span>
+</span></span></code></pre></div></li>
+</ol>
+<p>完成这一步后，您会直观地感觉到系统响应速度的提升，尤其是在高负载下的多任务处理场景。</p>
+<hr>
+<h2 id="第三章解除封印--禁用-cpu-安全缓解">第三章：解除封印 —— 禁用 CPU 安全缓解</h2>
+<p><strong>背景分析</strong>：这是本次优化中最硬核、也最具争议的一步。自 Spectre 和 Meltdown 漏洞被发现以来，所有现代操作系统都加入了软件层面的“缓解措施”（Mitigations）来防止恶意攻击。然而，这些安全补丁是有性能代价的，它们会给 CPU 带来 5% 到 30% 不等的性能损失。</p>
+<p>对于一个物理隔离、不运行不受信任代码、且数据非高度敏感的开发工作站来说，我们可以做出一个权衡：<strong>用可接受的安全风险，换取可观的原始计算性能</strong>。这对于编译、科学计算和 AI 推理等 CPU 密集型任务，收益巨大。</p>
+<p><strong>行动方案</strong>：通过修改 GRUB 引导参数，指示内核在启动时禁用这些缓解措施。为了确保操作的安全性和可逆性，我们创建了一个一键式开关脚本。</p>
+<ol>
+<li>
+<p><strong>创建 <code>toggle_cpu_mitigations.sh</code> 脚本</strong>：
+这个脚本的核心是通过修改 <code>/etc/default/grub</code> 文件中的 <code>GRUB_CMDLINE_LINUX_DEFAULT</code> 行，来添加或移除 <code>mitigations=off</code> 参数。</p>
+<p><em>完整脚本内容请参考项目 Git 仓库。</em></p>
+</li>
+<li>
+<p><strong>执行脚本以禁用缓解措施</strong>：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 赋予脚本执行权限</span>
+</span></span><span style="display:flex;"><span>chmod +x toggle_cpu_mitigations.sh
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 运行脚本以关闭缓解措施</span>
+</span></span><span style="display:flex;"><span>sudo ./toggle_cpu_mitigations.sh on
+</span></span></code></pre></div><p>该脚本会自动备份原始配置，然后应用更改并更新 GRUB。</p>
+</li>
+<li>
+<p><strong>重启与验证</strong>：
+同样，<strong>必须重启</strong>才能使更改生效。</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># 重启电脑</span>
+</span></span><span style="display:flex;"><span>sudo reboot
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 重启后，检查漏洞状态</span>
+</span></span><span style="display:flex;"><span>cat /sys/devices/system/cpu/vulnerabilities/*
+</span></span></code></pre></div><p>如果看到多个漏洞的状态从 <code>Mitigation</code> 变为 <code>Vulnerable</code>，这<strong>不是警报</strong>，而是<strong>成功的标志</strong>。它证明了系统的“封印”已被解除，CPU 正以其最原始的性能运行。</p>
+</li>
+</ol>
+]]></content:encoded></item><item><title>Qwen3-32B-AWQ vLLM 多卡 2080 Ti 极限部署实战</title><link>https://jackypanster.github.io/ai-stream/posts/qwen3-32b-2080ti-vllm-deploy/</link><pubDate>Wed, 16 Jul 2025 13:19:48 +0800</pubDate><guid>https://jackypanster.github.io/ai-stream/posts/qwen3-32b-2080ti-vllm-deploy/</guid><description>&lt;blockquote>
 &lt;p>使用旧显卡也能跑 32B 大模型？本文手把手演示如何在 &lt;strong>4×RTX 2080 Ti (共 88 GB 显存)&lt;/strong> 服务器上，通过 vLLM 0.8.5 + AWQ 量化，跑起 &lt;strong>Qwen3-32B&lt;/strong> 并支持 &lt;strong>32 K tokens&lt;/strong> 超长上下文与高吞吐推理。全文记录了踩坑过程与参数权衡，希望给同样预算有限、硬件受限的工程师带来借鉴。&lt;/p>&lt;/blockquote>
 &lt;p>{{.TableOfContents}}&lt;/p>
 &lt;h2 id="1-项目背景">1 项目背景&lt;/h2>
