@@ -1,10 +1,12 @@
 baseURL = 'https://jackypanster.github.io/ai-stream/'
-languageCode = 'en-us'
-title = 'AI 避难所'
+languageCode = 'zh-cn'
+title = 'Code Whispers'
 theme = 'PaperMod'
 
 [params]
-  author = "Jacky Pan"
+    author = "Jacky Pan"
+  description = "Code Whispers - 一个关于 AI、编程和技术的赛博空间。"
+  keywords = ["Blog", "Portfolio", "Jacky Pan", "AI", "Tech"]
   ShowSearch = true
 
   ShowReadingTime = true
@@ -17,7 +19,7 @@ theme = 'PaperMod'
   TocOpen = true
 
   ShowRssButtonInSectionTermList = true
-  ShowFullTextinRSS = true
+  ShowFullTextinRSS = false
   disableSpecial1stPost = false
   disableScrollToTop = false
   disableAnchoredHeadings = false
@@ -25,6 +27,20 @@ theme = 'PaperMod'
   hideSummary = false
   hideFooter = false
   comments = true
+
+  [[params.social_icons]]
+    name = "github"
+    url = "https://github.com/jackypanster"
+
+  [params.comments.giscus]
+    repo = "jackypanster/ai-stream"
+    repoId = "R_kgDOOsWGYw"
+    category = "General"
+    categoryId = "DIC_kwDOOsWGY84CtB0U"
+    mapping = "pathname"
+    reactionsEnabled = "1"
+    emitMetadata = "0"
+    lang = "zh-CN"
 
 [outputs]
   home = ["HTML", "RSS", "JSON"]
