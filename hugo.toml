@@ -26,7 +26,6 @@ theme = 'PaperMod'
   hideMeta = false
   hideSummary = false
   hideFooter = false
-  comments = true
 
   [[params.social_icons]]
     name = "github"
