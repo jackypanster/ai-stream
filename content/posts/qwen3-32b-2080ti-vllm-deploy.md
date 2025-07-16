@@ -1,9 +1,9 @@
 ---
-title: "Qwen3-32B-AWQ vLLM 多卡 2080 Ti 极限部署实战"
-date: 2025-07-16T13:19:48+08:00
-draft: false
-tags: ["vllm","qwen3","awq","gpu-deployment","2080ti"]
-categories: ["Large-Language-Model","Deployment"]
+title = "Qwen3-32B-AWQ vLLM 多卡 2080 Ti 极限部署实战"
+date = 2025-07-16T13:19:48+08:00
+draft = false
+tags = ["vllm","qwen3","awq","gpu-deployment","2080ti"]
+categories = ["Large-Language-Model","Deployment"]
 ---
 
 > 使用旧显卡也能跑 32B 大模型？本文手把手演示如何在 **4×RTX 2080 Ti (共 88 GB 显存)** 服务器上，通过 vLLM 0.8.5 + AWQ 量化，跑起 **Qwen3-32B** 并支持 **32 K tokens** 超长上下文与高吞吐推理。全文记录了踩坑过程与参数权衡，希望给同样预算有限、硬件受限的工程师带来借鉴。
