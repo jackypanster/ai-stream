@@ -1,4 +1,370 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>AI 避难所</title><link>https://jackypanster.github.io/ai-stream/</link><description>Recent content on AI 避难所</description><generator>Hugo -- 0.148.1</generator><language>en-us</language><lastBuildDate>Wed, 09 Jul 2025 00:00:00 +0000</lastBuildDate><atom:link href="https://jackypanster.github.io/ai-stream/index.xml" rel="self" type="application/rss+xml"/><item><title>从单卡瓶颈到四卡齐飞：一次完整的Ollama多GPU服务器性能优化实战</title><link>https://jackypanster.github.io/ai-stream/posts/the-ultimate-guide-to-multi-gpu-ollama-deployment/</link><pubDate>Wed, 09 Jul 2025 00:00:00 +0000</pubDate><guid>https://jackypanster.github.io/ai-stream/posts/the-ultimate-guide-to-multi-gpu-ollama-deployment/</guid><description>记录如何将一台拥有4块RTX 2080 Ti的服务器，从最初的Ollama单点服务，逐步优化，最终搭建成一个高性能、高并发的负载均衡集群的全过程。</description><content:encoded><![CDATA[<h2 id="前言">前言</h2>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>AI 避难所</title><link>https://jackypanster.github.io/ai-stream/</link><description>Recent content on AI 避难所</description><generator>Hugo -- 0.148.1</generator><language>en-us</language><lastBuildDate>Wed, 16 Jul 2025 13:19:48 +0800</lastBuildDate><atom:link href="https://jackypanster.github.io/ai-stream/index.xml" rel="self" type="application/rss+xml"/><item><title>Qwen3-32B-AWQ vLLM 多卡 2080 Ti 极限部署实战</title><link>https://jackypanster.github.io/ai-stream/posts/qwen3-32b-2080ti-vllm-deploy/</link><pubDate>Wed, 16 Jul 2025 13:19:48 +0800</pubDate><guid>https://jackypanster.github.io/ai-stream/posts/qwen3-32b-2080ti-vllm-deploy/</guid><description>&lt;blockquote>
+&lt;p>使用旧显卡也能跑 32B 大模型？本文手把手演示如何在 &lt;strong>4×RTX 2080 Ti (共 88 GB 显存)&lt;/strong> 服务器上，通过 vLLM 0.8.5 + AWQ 量化，跑起 &lt;strong>Qwen3-32B&lt;/strong> 并支持 &lt;strong>32 K tokens&lt;/strong> 超长上下文与高吞吐推理。全文记录了踩坑过程与参数权衡，希望给同样预算有限、硬件受限的工程师带来借鉴。&lt;/p>&lt;/blockquote>
+&lt;p>{{.TableOfContents}}&lt;/p>
+&lt;h2 id="1-项目背景">1 项目背景&lt;/h2>
+&lt;ul>
+&lt;li>主角：&lt;code>Qwen3-32B-AWQ&lt;/code> 量化模型 （≈ 18 GB）&lt;/li>
+&lt;li>目标：在消费级 &lt;strong>Turing&lt;/strong> 架构显卡（2080 Ti）上最大化利用显存与吞吐。&lt;/li>
+&lt;li>框架：&lt;code>vLLM 0.8.5&lt;/code> (openai-compatible server)&lt;/li>
+&lt;li>取舍：牺牲部分延迟 / 稳定性 → 换取 &lt;strong>吞吐 + 上下文长度&lt;/strong>&lt;/li>
+&lt;/ul>
+&lt;h2 id="2-硬件与系统环境">2 硬件与系统环境&lt;/h2>
+&lt;table>
+&lt;thead>
+&lt;tr>
+&lt;th>组件&lt;/th>
+&lt;th>规格&lt;/th>
+&lt;/tr>
+&lt;/thead>
+&lt;tbody>
+&lt;tr>
+&lt;td>GPU&lt;/td>
+&lt;td>4 × RTX 2080 Ti, 22 GB &lt;em>each&lt;/em>, Compute Capability 7.5&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>CPU&lt;/td>
+&lt;td>≥ 56 cores (vLLM 线程可吃满)&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>RAM&lt;/td>
+&lt;td>512 GB&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Storage&lt;/td>
+&lt;td>NVMe SSD 2 TB (模型 + KV 缓冲)&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>OS&lt;/td>
+&lt;td>Ubuntu 24.04&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>Driver&lt;/td>
+&lt;td>NVIDIA 570.153.02&lt;/td>
+&lt;/tr>
+&lt;tr>
+&lt;td>CUDA&lt;/td>
+&lt;td>12.8&lt;/td>
+&lt;/tr>
+&lt;/tbody>
+&lt;/table>
+&lt;h3 id="21-nvidia-smi-基线信息">2.1 NVIDIA-SMI 基线信息&lt;/h3>
+&lt;div class="highlight">&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;">&lt;code class="language-bash" data-lang="bash">&lt;span style="display:flex;">&lt;span>nvidia-smi
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>Wed Jul &lt;span style="color:#ae81ff">16&lt;/span> 13:27:17 &lt;span style="color:#ae81ff">2025&lt;/span>
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>+-----------------------------------------------------------------------------------------+
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>| NVIDIA-SMI 570.153.02 Driver Version: 570.153.02 CUDA Version: 12.8 |
+&lt;/span>&lt;/span>&lt;span style="display:flex;">&lt;span>+-----------------------------------------------------------------------------------------+
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/div>&lt;blockquote>
+&lt;p>可以看到驱动与 CUDA 版本与上表一致，确认环境无偏差。&lt;/p></description><content:encoded><![CDATA[<blockquote>
+<p>使用旧显卡也能跑 32B 大模型？本文手把手演示如何在 <strong>4×RTX 2080 Ti (共 88 GB 显存)</strong> 服务器上，通过 vLLM 0.8.5 + AWQ 量化，跑起 <strong>Qwen3-32B</strong> 并支持 <strong>32 K tokens</strong> 超长上下文与高吞吐推理。全文记录了踩坑过程与参数权衡，希望给同样预算有限、硬件受限的工程师带来借鉴。</p></blockquote>
+<p>{{.TableOfContents}}</p>
+<h2 id="1-项目背景">1 项目背景</h2>
+<ul>
+<li>主角：<code>Qwen3-32B-AWQ</code> 量化模型  （≈ 18 GB）</li>
+<li>目标：在消费级 <strong>Turing</strong> 架构显卡（2080 Ti）上最大化利用显存与吞吐。</li>
+<li>框架：<code>vLLM 0.8.5</code> (openai-compatible server)</li>
+<li>取舍：牺牲部分延迟 / 稳定性 → 换取 <strong>吞吐 + 上下文长度</strong></li>
+</ul>
+<h2 id="2-硬件与系统环境">2 硬件与系统环境</h2>
+<table>
+  <thead>
+      <tr>
+          <th>组件</th>
+          <th>规格</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>GPU</td>
+          <td>4 × RTX 2080 Ti, 22 GB <em>each</em>, Compute Capability 7.5</td>
+      </tr>
+      <tr>
+          <td>CPU</td>
+          <td>≥ 56 cores (vLLM 线程可吃满)</td>
+      </tr>
+      <tr>
+          <td>RAM</td>
+          <td>512 GB</td>
+      </tr>
+      <tr>
+          <td>Storage</td>
+          <td>NVMe SSD 2 TB (模型 + KV 缓冲)</td>
+      </tr>
+      <tr>
+          <td>OS</td>
+          <td>Ubuntu 24.04</td>
+      </tr>
+      <tr>
+          <td>Driver</td>
+          <td>NVIDIA 570.153.02</td>
+      </tr>
+      <tr>
+          <td>CUDA</td>
+          <td>12.8</td>
+      </tr>
+  </tbody>
+</table>
+<h3 id="21-nvidia-smi-基线信息">2.1 NVIDIA-SMI 基线信息</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>nvidia-smi
+</span></span><span style="display:flex;"><span>Wed Jul <span style="color:#ae81ff">16</span> 13:27:17 <span style="color:#ae81ff">2025</span>
+</span></span><span style="display:flex;"><span>+-----------------------------------------------------------------------------------------+
+</span></span><span style="display:flex;"><span>| NVIDIA-SMI 570.153.02             Driver Version: 570.153.02     CUDA Version: 12.8     |
+</span></span><span style="display:flex;"><span>+-----------------------------------------------------------------------------------------+
+</span></span></code></pre></div><blockquote>
+<p>可以看到驱动与 CUDA 版本与上表一致，确认环境无偏差。</p></blockquote>
+<blockquote>
+<p><strong>为什么 2080 Ti？</strong> 二手市场价格友好，但 Flash-Attention-2 不支持，需要自己编译 flash-attn-1 或使用 XFormers。</p></blockquote>
+<h2 id="3-快速部署步骤概览">3 快速部署步骤概览</h2>
+<ol>
+<li>下载并解压 <code>Qwen3-32B-AWQ</code> 权重至 <code>/home/llm/model/qwen/Qwen3-32B-AWQ</code>。</li>
+<li>（可选）编译 <code>flash-attn-1</code> 以替代原生 attention。</li>
+<li>拉取官方 vLLM 镜像 <code>vllm/vllm-openai:v0.8.5</code>。</li>
+<li>按下文 <strong>run.sh</strong> 参数启动容器。</li>
+</ol>
+<p>下面拆解每一步的技术细节。</p>
+<h3 id="31-模型准备">3.1 模型准备</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>mkdir -p /home/llm/model/qwen
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 省略 huggingface-cli 登录步骤</span>
+</span></span><span style="display:flex;"><span>huggingface-cli download Qwen/Qwen3-32B-AWQ --local-dir /home/llm/model/qwen/Qwen3-32B-AWQ --local-dir-use-symlinks False
+</span></span></code></pre></div><h3 id="32-编译-flash-attention-12080-ti-专用">3.2 编译 Flash-Attention-1（2080 Ti 专用）</h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e"># CUDA 12.x + Python 3.12 示例</span>
+</span></span><span style="display:flex;"><span>python3 -m pip install --upgrade pip
+</span></span><span style="display:flex;"><span>python3 -m pip install ninja packaging cmake
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># 强制源码编译，确保生成 sm75 kernel</span>
+</span></span><span style="display:flex;"><span>FLASH_ATTENTION_FORCE_BUILD<span style="color:#f92672">=</span><span style="color:#ae81ff">1</span> <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  python3 -m pip install flash-attn --no-build-isolation --no-binary :all:
+</span></span></code></pre></div><blockquote>
+<p><strong>容器用户请注意</strong>：如果使用下文的官方 vLLM Docker 镜像，需在 <em>容器内部</em> 或自建 Dockerfile 完成同样的 flash-attn-1 编译（或将已编译好的 wheel 复制进镜像）。宿主机安装的 Python 包不会被容器环境读取。</p></blockquote>
+<h4 id="321-无需重建大镜像的折中做法">3.2.1 无需重建大镜像的折中做法</h4>
+<table>
+  <thead>
+      <tr>
+          <th>做法</th>
+          <th>说明</th>
+          <th>额外体积</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>启动时临时 <code>--pip-install</code></strong></td>
+          <td>vLLM ≥0.9 支持 <code>--pip</code> 参数，容器启动时即在线编译 <code>flash-attn</code></td>
+          <td>0（编译产物缓存于 volume）</td>
+      </tr>
+      <tr>
+          <td><strong>宿主机先编译 wheel</strong></td>
+          <td><code>pip wheel flash-attn -w /tmp/wheels</code>，运行时挂载 <code>/tmp/wheels</code> 并 <code>pip install</code></td>
+          <td>~30-40 MB</td>
+      </tr>
+      <tr>
+          <td><strong>改用 XFormers</strong></td>
+          <td>加 <code>--xformers</code>，性能略低于 flash-attn-1，但免编译</td>
+          <td>0</td>
+      </tr>
+      <tr>
+          <td><strong>保持默认 attention</strong></td>
+          <td>对吞吐要求一般的场景可接受</td>
+          <td>0</td>
+      </tr>
+  </tbody>
+</table>
+<blockquote>
+<p>推荐顺序：临时 <code>--pip</code> &gt; wheel 挂载 &gt; XFormers &gt; 默认 Attention。按业务对性能 &amp; 简易度的权衡自行选择。</p></blockquote>
+<p>验证：</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>python3 - <span style="color:#e6db74">&lt;&lt;&#39;PY&#39;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">import flash_attn, torch, platform
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">print(&#39;flash-attn&#39;, flash_attn.__version__, &#39;torch&#39;, torch.__version__, &#39;python&#39;, platform.python_version())
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">PY</span>
+</span></span></code></pre></div><h3 id="33-启动脚本-runsh">3.3 启动脚本 <code>run.sh</code></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span><span style="color:#75715e">#!/usr/bin/env bash
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>docker run -d <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --runtime<span style="color:#f92672">=</span>nvidia --gpus<span style="color:#f92672">=</span>all --name coder <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  -v /home/llm/model/qwen/Qwen3-32B-AWQ:/model/Qwen3-32B-AWQ <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  -p 8888:8000 --cpuset-cpus 0-55 <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --ulimit memlock<span style="color:#f92672">=</span>-1 --ulimit stack<span style="color:#f92672">=</span><span style="color:#ae81ff">67108864</span> --restart always --ipc<span style="color:#f92672">=</span>host <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  vllm/vllm-openai:v0.8.5 <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --model /model/Qwen3-32B-AWQ --served-model-name coder <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --tensor-parallel-size <span style="color:#ae81ff">4</span> --quantization awq --dtype auto <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --max-model-len <span style="color:#ae81ff">32768</span> --max-num-batched-tokens <span style="color:#ae81ff">32768</span> <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --gpu-memory-utilization 0.96 <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --block-size <span style="color:#ae81ff">16</span> <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --enable-prefix-caching <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --swap-space <span style="color:#ae81ff">64</span> <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  --max-num-seqs <span style="color:#ae81ff">64</span>
+</span></span></code></pre></div><blockquote>
+<p><strong>容器 vs 本机</strong>：直接裸跑亦可，核心参数完全相同。容器便于复现与快速重启。</p></blockquote>
+<h2 id="4-关键运行参数拆解">4 关键运行参数拆解</h2>
+<table>
+  <thead>
+      <tr>
+          <th>参数</th>
+          <th>作用 / 调优思路</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><code>--tensor-parallel-size 4</code></td>
+          <td>4 卡切分模型参数，2080 Ti 单卡显存有限必须拆分。</td>
+      </tr>
+      <tr>
+          <td><code>--quantization awq</code></td>
+          <td>启用 <strong>AWQ</strong> 权重量化，显存≈再降 40%。某些长文本场景下 FP16 仍更快，需实测。</td>
+      </tr>
+      <tr>
+          <td><code>--max-model-len 32768</code></td>
+          <td>支持 32 K tokens；大幅增加 KV Cache，需要配合 <code>--swap-space</code>。</td>
+      </tr>
+      <tr>
+          <td><code>--max-num-batched-tokens 32768</code></td>
+          <td>单批次 tokens 上限。吞吐 / 显存 trade-off。</td>
+      </tr>
+      <tr>
+          <td><code>--gpu-memory-utilization 0.96</code></td>
+          <td>近乎吃满显存，谨慎调；留 0.04 作余量。</td>
+      </tr>
+      <tr>
+          <td><code>--block-size 16</code></td>
+          <td>KV Cache 分块。块越小越灵活，管理开销稍增。</td>
+      </tr>
+      <tr>
+          <td><code>--enable-prefix-caching</code></td>
+          <td>高复用 prompt 命中率可&gt;90%，显著提升长对话吞吐。</td>
+      </tr>
+      <tr>
+          <td><code>--swap-space 64</code></td>
+          <td>允许 64 GB CPU RAM 作为 KV Cache 溢出。swap 大延迟高。</td>
+      </tr>
+      <tr>
+          <td><code>--max-num-seqs 64</code></td>
+          <td>控制并发序列数。越大吞吐高，长文本 OOM 风险也高。</td>
+      </tr>
+  </tbody>
+</table>
+<h2 id="5-api-调用范例">5 API 调用范例</h2>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>curl http://localhost:8888/v1/chat/completions <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  -H <span style="color:#e6db74">&#39;Content-Type: application/json&#39;</span> <span style="color:#ae81ff">\
+</span></span></span><span style="display:flex;"><span><span style="color:#ae81ff"></span>  -d <span style="color:#e6db74">&#39;{
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    &#34;model&#34;: &#34;coder&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    &#34;messages&#34;: [
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">      {&#34;role&#34;: &#34;system&#34;, &#34;content&#34;: &#34;你是一个聪明的 AI 助手。&#34;},
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">      {&#34;role&#34;: &#34;user&#34;, &#34;content&#34;: &#34;请写一个 Python 冒泡排序。&#34;}
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    ],
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    &#34;max_tokens&#34;: 512,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    &#34;temperature&#34;: 0.2
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  }&#39;</span>
+</span></span></code></pre></div><ul>
+<li><code>max_tokens</code> 建议 512 ~ 2048；极限 context 时过大易 <strong>OOM</strong>。</li>
+<li><code>stream=true</code> 可获得流式输出；耗时更短，占用更低。</li>
+</ul>
+<h2 id="6-性能压榨技巧">6 性能压榨技巧</h2>
+<ol>
+<li><strong>AWQ vs FP16</strong>
+<ul>
+<li>某些推理阶段 AWQ kernel 尚未优化，🚀 结果 FP16 更快。实测二选一。</li>
+</ul>
+</li>
+<li><strong>Flash-Attn-1 / XFormers</strong>
+<ul>
+<li>2080 Ti 无 <strong>Flash-Attn-2</strong>；编译 v1 或使用 XFormers 皆可。</li>
+</ul>
+</li>
+<li><strong>KV Cache &amp; Swap</strong>
+<ul>
+<li>监控 <code>gpu_kv_cache</code> 与 <code>swap_used</code> 两项；长文本易炸。</li>
+</ul>
+</li>
+<li><strong>多实例分卡</strong>
+<ul>
+<li>把 4 卡拆成 2 × 2 卡实例，可提高 GPU 利用率 (不同业务负载)。</li>
+</ul>
+</li>
+<li><strong>自动降级</strong>
+<ul>
+<li>在 API 层检测 OOM → 自动缩短上下文 or 调小并发，保证可用性。</li>
+</ul>
+</li>
+</ol>
+<h2 id="7-常见问题速查">7 常见问题速查</h2>
+<table>
+  <thead>
+      <tr>
+          <th>症状</th>
+          <th>解决方案</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>返回不完整/截断</strong></td>
+          <td>增大 <code>max_tokens</code>；缩短输入；检查日志中 <code>context_window</code>。</td>
+      </tr>
+      <tr>
+          <td><strong>CUDA OOM / 容器崩溃</strong></td>
+          <td>降低 <code>max-model-len</code>、<code>max-num-batched-tokens</code>；增大 <code>swap-space</code>。</td>
+      </tr>
+      <tr>
+          <td><strong>推理速度慢</strong></td>
+          <td>确认 flash-attn-1 已启用；并发不要过高；尝试 FP16。</td>
+      </tr>
+      <tr>
+          <td><strong>NCCL 死锁 / hang</strong></td>
+          <td>加 <code>--disable-custom-all-reduce</code> 或升级 NCCL。</td>
+      </tr>
+  </tbody>
+</table>
+<h2 id="8-实战压测结果-10-并发--32-k-prompt">8 实战压测结果 (10 并发 · 32 K prompt)</h2>
+<table>
+  <thead>
+      <tr>
+          <th>指标</th>
+          <th>数值</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Avg prompt throughput</td>
+          <td><strong>63 K tokens/s</strong></td>
+      </tr>
+      <tr>
+          <td>Avg generation throughput</td>
+          <td><strong>57 tokens/s</strong></td>
+      </tr>
+      <tr>
+          <td>平均响应时间</td>
+          <td><strong>5.63 s</strong></td>
+      </tr>
+      <tr>
+          <td>GPU KV Cache 占用</td>
+          <td>15 %</td>
+      </tr>
+      <tr>
+          <td>Prefix cache 命中率</td>
+          <td>94 %</td>
+      </tr>
+      <tr>
+          <td>错误 / OOM</td>
+          <td>0</td>
+      </tr>
+  </tbody>
+</table>
+<blockquote>
+<p>高吞吐归功于：1) prefix caching 2) AWQ 量化 3) 近乎满显存利用。</p></blockquote>
+<h3 id="结果解读">结果解读</h3>
+<ul>
+<li><strong>吞吐</strong>：输入阶段 63K tokens/s，生成阶段 57 tokens/s，对 32B 模型非常可观。</li>
+<li><strong>资源</strong>：GPU KV Cache 仅 15 %；系统还可上调并发 / 上下文。</li>
+<li><strong>稳定</strong>：长时间压测无 OOM / pending；容器 restart=always 可兜底。</li>
+</ul>
+<h2 id="9-总结--建议">9 总结 &amp; 建议</h2>
+<p>使用旧世代显卡并不意味着放弃大模型。通过 <strong>vLLM + AWQ + Prefix Cache</strong> 等组合拳，4×2080 Ti 依旧能够支撑 <strong>Qwen3-32B</strong> 的 32 K 超长上下文推理。</p>
+<ul>
+<li><strong>科研 / 测试</strong> 场景：强烈推荐该方案，可用最低成本探索大模型推理极限。</li>
+<li><strong>生产</strong> 场景：需谨慎评估崩溃概率与延迟，做好监控与自动降级。</li>
+</ul>
+<p>⚙️ <strong>后续方向</strong></p>
+<ol>
+<li>迁移到 <strong>RTX 5000 Ada</strong> 等新卡，可解锁 Flash-Attn-2 与更高带宽。</li>
+<li>关注 vLLM 后续对 AWQ Kernel 的优化；升级 &gt;=0.9 可能免去自己编译。</li>
+<li>尝试 <strong>TensorRT-LLM</strong> 自动并行拆分，获得额外 10~20% 性能。</li>
+</ol>
+]]></content:encoded></item><item><title>从单卡瓶颈到四卡齐飞：一次完整的Ollama多GPU服务器性能优化实战</title><link>https://jackypanster.github.io/ai-stream/posts/the-ultimate-guide-to-multi-gpu-ollama-deployment/</link><pubDate>Wed, 09 Jul 2025 00:00:00 +0000</pubDate><guid>https://jackypanster.github.io/ai-stream/posts/the-ultimate-guide-to-multi-gpu-ollama-deployment/</guid><description>记录如何将一台拥有4块RTX 2080 Ti的服务器，从最初的Ollama单点服务，逐步优化，最终搭建成一个高性能、高并发的负载均衡集群的全过程。</description><content:encoded><![CDATA[<h2 id="前言">前言</h2>
 <p>服务器：4块NVIDIA RTX 2080 Ti，每张拥有22GB显存，总计88GB的VRAM。目标：让Ollama在这台机器上火力全开，为大语言模型提供强劲的推理服务。</p>
 <p>然而，最初的想法——“如何用光所有显存？”——很快被证明是一个误区。真正的目标应该是：<strong>如何最高效地利用所有GPU资源，实现最大的吞吐量和最低的延迟？</strong></p>
 <p>本文将完整记录从最初的配置探索，到发现并解决性能瓶颈，再到最终搭建起一个健壮的4-GPU负载均衡服务集群的全过程。这不仅是一份操作指南，更是一次充满洞见的性能优化之旅。</p>
