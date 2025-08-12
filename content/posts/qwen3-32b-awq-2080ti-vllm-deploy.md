@@ -1,6 +1,6 @@
 +++
 title = "Qwen3-32B AWQ 在 4×RTX 2080 Ti 上的极限部署实战"
-date = 2025-07-16T14:00:00+08:00
+date = 2025-08-12T14:00:00+08:00
 draft = false
 tags = ["Qwen3", "vLLM", "AWQ", "RTX 2080 Ti", "大模型部署"]
 categories = ["AI部署", "大语言模型"]
