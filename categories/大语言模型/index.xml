@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>大语言模型 on Code Whispers</title><link>https://jackypanster.github.io/ai-stream/categories/%E5%A4%A7%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B/</link><description>Recent content in 大语言模型 on Code Whispers</description><generator>Hugo -- 0.165.0</generator><language>zh-cn</language><lastBuildDate>Tue, 12 Aug 2025 14:00:00 +0800</lastBuildDate><atom:link href="https://jackypanster.github.io/ai-stream/categories/%E5%A4%A7%E8%AF%AD%E8%A8%80%E6%A8%A1%E5%9E%8B/index.xml" rel="self" type="application/rss+xml"/><item><title>Qwen3-32B AWQ 在 4×RTX 2080 Ti 上的极限部署实战</title><link>https://jackypanster.github.io/ai-stream/posts/qwen3-32b-awq-2080ti-vllm-deploy/</link><pubDate>Tue, 12 Aug 2025 14:00:00 +0800</pubDate><guid>https://jackypanster.github.io/ai-stream/posts/qwen3-32b-awq-2080ti-vllm-deploy/</guid><description>&lt;blockquote&gt;
+&lt;p&gt;使用旧显卡也能跑 32B 大模型？本文手把手演示如何在 4×RTX 2080 Ti (共 88 GB 显存) 服务器上，通过 vLLM 0.8.5 + AWQ 量化，跑起 Qwen3-32B 并支持 200K+ tokens 超长上下文与高吞吐推理。全文记录了踩坑过程与参数权衡，希望给同样预算有限、硬件受限的工程师带来借鉴。&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;h2 id="项目背景"&gt;项目背景&lt;/h2&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;strong&gt;主角&lt;/strong&gt;：Qwen3-32B-AWQ 量化模型 （≈ 18 GB）&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;目标&lt;/strong&gt;：在消费级 Turing 架构显卡（2080 Ti）上最大化利用显存与吞吐。&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;框架&lt;/strong&gt;：vLLM 0.8.5 (openai-compatible server)&lt;/li&gt;
+&lt;li&gt;&lt;strong&gt;取舍&lt;/strong&gt;：牺牲部分延迟 / 稳定性 → 换取 吞吐 + 上下文长度&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2 id="硬件与系统环境"&gt;硬件与系统环境&lt;/h2&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;组件&lt;/th&gt;
+&lt;th&gt;规格&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;GPU&lt;/td&gt;
+&lt;td&gt;4 × RTX 2080 Ti, 22 GB each, Compute Capability 7.5&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;CPU&lt;/td&gt;
+&lt;td&gt;≥ 56 cores (vLLM 线程可吃满)&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;RAM&lt;/td&gt;
+&lt;td&gt;512 GB&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;Storage&lt;/td&gt;
+&lt;td&gt;NVMe SSD 2 TB (模型 + KV 缓冲)&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;OS&lt;/td&gt;
+&lt;td&gt;Ubuntu 24.04&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;Driver&lt;/td&gt;
+&lt;td&gt;NVIDIA 570.153.02&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;CUDA&lt;/td&gt;
+&lt;td&gt;12.8&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h3 id="nvidia-smi-基线信息"&gt;NVIDIA-SMI 基线信息&lt;/h3&gt;
+&lt;div class="highlight"&gt;&lt;pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"&gt;&lt;code class="language-bash" data-lang="bash"&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;nvidia-smi
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;Wed Jul &lt;span style="color:#ae81ff"&gt;16&lt;/span&gt; 13:27:17 &lt;span style="color:#ae81ff"&gt;2025&lt;/span&gt;
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;+-----------------------------------------------------------------------------------------+
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;| NVIDIA-SMI 570.153.02 Driver Version: 570.153.02 CUDA Version: 12.8 |
+&lt;/span&gt;&lt;/span&gt;&lt;span style="display:flex;"&gt;&lt;span&gt;+-----------------------------------------------------------------------------------------+
+&lt;/span&gt;&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;blockquote&gt;
+&lt;p&gt;可以看到驱动与 CUDA 版本与上表一致，确认环境无偏差。&lt;/p&gt;</description></item></channel></rss>
